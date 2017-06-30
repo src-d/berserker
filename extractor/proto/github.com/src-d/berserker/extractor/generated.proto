@@ -1,0 +1,47 @@
+syntax = "proto3";
+package github.com.srcd.berserker.extractor;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+option (gogoproto.protosizer_all) = true;
+option (gogoproto.sizer_all) = false;
+option go_package = "extractor";
+
+message File {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	string language = 1;
+	string path = 2;
+	string ast = 3 [(gogoproto.customname) = "AST"];
+	bytes hash = 4;
+}
+
+// proteus:generate
+message RepositoryData {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	string repository_id = 1 [(gogoproto.customname) = "RepositoryID"];
+	repeated github.com.srcd.berserker.extractor.File files = 2 [(gogoproto.nullable) = false];
+}
+
+// proteus:generate
+message Request {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	string repository_id = 1 [(gogoproto.customname) = "RepositoryID"];
+	bytes root_commit_hash = 2;
+	string reference = 3;
+}
+
+message Service_GetRepositoriesDataRequest {
+}
+
+message Service_GetRepositoriesDataResponse {
+	repeated github.com.srcd.berserker.extractor.RepositoryData result1 = 1;
+}
+
+service ExtractorService {
+	rpc Service_GetRepositoriesData (github.com.srcd.berserker.extractor.Service_GetRepositoriesDataRequest) returns (github.com.srcd.berserker.extractor.Service_GetRepositoriesDataResponse);
+	rpc Service_GetRepositoryData (github.com.srcd.berserker.extractor.Request) returns (github.com.srcd.berserker.extractor.RepositoryData);
+}
+
