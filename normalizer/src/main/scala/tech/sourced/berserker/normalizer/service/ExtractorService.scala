@@ -18,13 +18,15 @@ class ExtractorService(host: String, port: Int, isPlainText: Boolean = true) {
       for {
         file <- rd.files
         repoId = rd.repositoryId
+        repoUrl = rd.url
       } yield {
         Row(repoId,
+          repoUrl,
           Option(file.hash)
             .orNull
             .toByteArray
             .map("%02x" format _)
-            .mkString, file.path, file.language, file.ast)
+            .mkString, file.path, file.language, file.uast)
       }
     })
   }
