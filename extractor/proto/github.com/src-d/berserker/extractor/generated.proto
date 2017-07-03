@@ -12,7 +12,7 @@ message File {
 	option (gogoproto.typedecl) = false;
 	string language = 1;
 	string path = 2;
-	string ast = 3 [(gogoproto.customname) = "AST"];
+	string uast = 3 [(gogoproto.customname) = "UAST"];
 	bytes hash = 4;
 }
 
@@ -21,7 +21,8 @@ message RepositoryData {
 	option (gogoproto.goproto_getters) = false;
 	option (gogoproto.typedecl) = false;
 	string repository_id = 1 [(gogoproto.customname) = "RepositoryID"];
-	repeated github.com.srcd.berserker.extractor.File files = 2 [(gogoproto.nullable) = false];
+	string url = 2 [(gogoproto.customname) = "URL"];
+	repeated github.com.srcd.berserker.extractor.File files = 3 [(gogoproto.nullable) = false];
 }
 
 // proteus:generate

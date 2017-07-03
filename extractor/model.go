@@ -9,13 +9,14 @@ type Request struct {
 
 // proteus:generate
 type RepositoryData struct {
-	RepositoryID   string
-	Files []File
+	RepositoryID string
+	URL          string
+	Files        []File
 }
 
 type File struct {
 	Language string
 	Path     string
-	AST      string
+	UAST     string
 	Hash     []byte
 }
