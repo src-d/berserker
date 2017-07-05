@@ -1,8 +1,11 @@
 package tech.sourced.berserker.normalizer.service
 
-import github.com.srcd.berserker.extractor.generated.{ExtractorServiceGrpc, Service_GetRepositoriesDataRequest}
+import com.google.protobuf
+import github.com.srcd.berserker.extractor.generated.{ExtractorServiceGrpc, Request, Service_GetRepositoriesDataRequest}
 import io.grpc.ManagedChannelBuilder
 import org.apache.spark.sql.Row
+
+import scalapb.descriptors.ScalaType.ByteString
 
 class ExtractorService(host: String, port: Int, isPlainText: Boolean = true) {
   private val channel = ManagedChannelBuilder
@@ -30,6 +33,20 @@ class ExtractorService(host: String, port: Int, isPlainText: Boolean = true) {
       }
     })
   }
+
+  // TODO finish
+  //  def getRepositoryData(
+  //                         repositoryId: String,
+  //                         rootCommitHash: String,
+  //                         referenceName: String): Unit = {
+  //    val reply = stub.serviceGetRepositoryData(
+  //      Request(
+  //        repositoryId,
+  //        rootCommitHash.asInstanceOf[protobuf.ByteString],
+  //        referenceName
+  //      )
+  //    )
+  //  }
 }
 
 object ExtractorService {

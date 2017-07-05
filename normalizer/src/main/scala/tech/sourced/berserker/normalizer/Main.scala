@@ -2,7 +2,7 @@ package tech.sourced.berserker.normalizer
 
 import org.apache.spark.sql.SparkSession
 import tech.sourced.berserker.normalizer.model.Schema
-import tech.sourced.berserker.normalizer.service.ExtractorService
+import tech.sourced.berserker.normalizer.service.{ExtractorService, RepositoriesDBService}
 
 object Main extends App {
   // TODO parametrize
@@ -14,6 +14,10 @@ object Main extends App {
   var parquetCompression = "none"
   var parquetMode = "overwrite"
   var parquetFilename = "parquet"
+  val jdbcConnection = "jdbc:postgresql://localhost:5432/testing"
+  val user = "testing"
+  val password = "testing"
+  val tableName = "repositories"
 
   val spark = SparkSession.builder()
     .appName(appName)
@@ -22,6 +26,7 @@ object Main extends App {
 
   // Start gRPC connection
   val extractorService = ExtractorService(grpcHost, grpcPort, grpcPlainText)
+  val reposService = RepositoriesDBService(jdbcConnection, user, password, spark)
 
   val dataRDD = spark.sparkContext.parallelize(extractorService.getRepositoriesData)
   val dataDF = spark.sqlContext.createDataFrame(dataRDD, Schema.files)
