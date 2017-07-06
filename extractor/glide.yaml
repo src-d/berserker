@@ -11,8 +11,6 @@ import:
   - context
 - package: google.golang.org/grpc
 - package: gopkg.in/src-d/enry.v1
-- package: gopkg.in/src-d/go-billy.v3
-  version: ^3.0.1
 - package: gopkg.in/src-d/go-git.v4
   repo: https://github.com/src-d/go-git.git
   version: ce6f5b7c82fc6c2c4d41880ed6b26f921dd9c1c3
