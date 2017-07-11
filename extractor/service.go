@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/inconshreveable/log15"
+
 	"github.com/bblfsh/sdk/protocol"
 	"google.golang.org/grpc"
 
@@ -29,8 +31,9 @@ type Service struct {
 }
 
 func NewService() *Service {
-	conn, err := grpc.Dial("0.0.0.0:9432", grpc.WithTimeout(time.Second*2), grpc.WithInsecure())
-	client := protocol.NewProtocolServiceClient(conn)
+	//TODO(bzz): parametrize
+	bblfshConn, err := grpc.Dial("0.0.0.0:9432", grpc.WithTimeout(time.Second*2), grpc.WithInsecure())
+	client := protocol.NewProtocolServiceClient(bblfshConn)
 	checkIfError(err)
 
 	return &Service{bblfshClient: client}
@@ -45,16 +48,19 @@ func (s *Service) GetRepositoryData(r *Request) (*RepositoryData, error) {
 //proteus:generate
 func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
 	n, err := core.ModelRepositoryStore().Count(model.NewRepositoryQuery().FindByStatus(model.Fetched))
-	checkIfError(err)
-	fmt.Printf("Iterating over %d 'fetched' repositories in DB:\n", n)
+	if err != nil {
+		log.Error("Could not connect to DB to get the number of 'fetched' repositories", "err", err)
+	} else {
+		log.Info("Iterating over repositories in DB", "status:fetched", n)
+	}
 
-	master := "refs/heads/master"
+	const master = "refs/heads/master"
 	result := make([]*RepositoryData, n)
 
 	reposNum := 0
-	totalFilesNum := 0
+	totalFiles := 0
 	for masterRefInit, repoID := range findAllFetchedReposWithRef(master) {
-		fmt.Printf("Repo: %v", repoID)
+		log.Info("Processing repository", "id", repoID)
 		repo := &RepositoryData{
 			RepositoryID: repoID,
 			URL:          "", //TODO(bzz): add repo url!
@@ -64,23 +70,23 @@ func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
 		rootedTransactioner := core_retrieval.RootedTransactioner()
 		tx, err := rootedTransactioner.Begin(plumbing.Hash(masterRefInit))
 		if err != nil {
-			fmt.Printf("Failed to begin a tx for repo:%v, hash:%v. %v\n", repoID, masterRefInit, err)
+			log.Error("Failed to begin tx for rooted repo", "id", repoID, "hash", masterRefInit, "err", err)
 			continue
 		}
 
 		tree, err := gitOpenGetTree(tx.Storer(), repoID, masterRefInit, master)
 		if err != nil {
-			fmt.Printf("Failed to open&get tree for Git repo:%v, hash:%v. %v\n", repoID, masterRefInit, err)
+			log.Error("Failed to open&get tree from rooted repo", "id", repoID, "hash", masterRefInit, "err", err)
 			_ = tx.Rollback()
 			continue
 		}
 
-		skpFilesNum := 0
-		sucFilesNum := 0
-		errFilesNum := 0
+		skpFiles := 0
+		sucFiles := 0
+		errFiles := 0
 		err = tree.Files().ForEach(func(f *object.File) error {
-			i := (skpFilesNum + sucFilesNum + errFilesNum) % 1000
-			batch := (skpFilesNum + sucFilesNum + errFilesNum) / 1000
+			i := (skpFiles + sucFiles + errFiles) % 1000
+			batch := (skpFiles + sucFiles + errFiles) / 1000
 			if i == 0 && batch != 0 {
 				fmt.Printf("\t%d000 files...\n", batch)
 			}
@@ -88,41 +94,39 @@ func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
 			// discard vendoring with enry
 			if enry.IsVendor(f.Name) || enry.IsDotFile(f.Name) ||
 				enry.IsDocumentation(f.Name) || enry.IsConfiguration(f.Name) {
-				skpFilesNum++
+				skpFiles++
 				return nil
 			} //TODO(bzz): filter binaries like .apk and .jar
 
 			// detect language with enry
 			fContent, err := f.Contents()
 			if err != nil {
-				fmt.Printf("\tFailed to read file %s, %s\n", f.Name, err)
-				errFilesNum++
+				log.Warn("Failed to read", "file", f.Name, "err", err)
+				errFiles++
 				return nil
 			}
 
 			fLang := enry.GetLanguage(f.Name, []byte(fContent))
 			if err != nil {
-				fmt.Printf("\tFailed to detect language for %s, %s\n", f.Name, err)
-				errFilesNum++
+				log.Warn("Failed to detect language", "file", f.Name, "err", err)
+				errFiles++
 				return nil
 			}
-			//fmt.Printf("\t%-9s blob %s    %s\n", fLang, f.Hash, f.Name)
+			log.Debug(fmt.Sprintf("\t%-9s blob %s    %s\n", fLang, f.Hash, f.Name))
 
 			// Babelfish -> UAST (Python, Java)
 			if strings.EqualFold(fLang, "java") || strings.EqualFold(fLang, "python") {
-
-				//TODO(bzz): reply as protobuf
 				uast, err := parseToUast(s.bblfshClient, f.Name, strings.ToLower(fLang), fContent)
 				if err != nil {
-					errFilesNum++
+					errFiles++
 					return nil
 				}
 
-				sucFilesNum++
+				sucFiles++
 				file := File{
 					Language: fLang,
 					Path:     f.Name,
-					UAST:     string(*uast),
+					UAST:     string(*uast), //TODO(bzz): change .proto, make UAST `byte` when using Protobuf (now JSON)
 				}
 				repo.Files = append(repo.Files, file)
 			}
@@ -131,13 +135,13 @@ func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
 		checkIfError(err)
 		result = append(result, repo)
 
-		fmt.Printf("Done. Repository encoded, success:%d, fail:%d, skipped:%d files.\n", sucFilesNum, errFilesNum, skpFilesNum)
+		log.Info("Done. All files parsed", "repo", repoID, "success", sucFiles, "fail", errFiles, "skipped", skpFiles)
 		reposNum++
-		totalFilesNum = totalFilesNum + sucFilesNum + errFilesNum + skpFilesNum
+		totalFiles = totalFiles + sucFiles + errFiles + skpFiles
 
 		tx.Rollback()
 	}
-	fmt.Printf("Done. Total %d repository, %d files encoded\n", reposNum, totalFilesNum)
+	log.Info("Done. All files in all repositories parsed", "repositories", reposNum, "files", totalFiles)
 	return result, nil
 }
 
@@ -153,7 +157,6 @@ func gitOpenGetTree(txStorer storage.Storer, repoID string, masterRefInit model.
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf(", master:%+v\n", branch)
 
 	// retrieve the commit that the reference points to
 	commit, err := rr.CommitObject(branch.Hash())
@@ -167,7 +170,7 @@ func gitOpenGetTree(txStorer storage.Storer, repoID string, masterRefInit model.
 
 func parseToUast(client protocol.ProtocolServiceClient, fName string, fLang string, fContent string) (*[]byte, error) {
 	fName = filepath.Base(fName)
-	//fmt.Printf("\t\tParsing %s to UAST in %s\n\n", fName, fLang)
+	log.Debug("Parsing file to UAST", "file", fName, "language", fLang)
 
 	//TODO(bzz): take care of non-UTF8 things, before sending them
 	//  - either encode in utf8
@@ -177,23 +180,24 @@ func parseToUast(client protocol.ProtocolServiceClient, fName string, fLang stri
 		Language: fLang}
 	resp, err := client.ParseUAST(context.TODO(), req)
 	if err != nil {
-		fmt.Printf("\t\tError - ParseUAST failed, error:%v for %s\n", err, fName)
+		log.Error("ParseUAST failed on gRPC level", "file", fName, "err", err)
 		return nil, err
 	} else if resp == nil {
-		fmt.Printf("\t\tNo error, but - ParseUAST failed, response is nil\n")
+		log.Error("ParseUAST failed on Bblfsh level, response is nil\n")
 		return nil, err
 	} else if resp.Status != protocol.Ok {
-		fmt.Printf("\t\tNo error, but - ParseUAST failed:%s, %d errors:%v for %s\n", resp.Status, len(resp.Errors), resp.Errors, fName)
+		log.Warn("ParseUAST failed", "file", fName, "satus", resp.Status, "errors num", len(resp.Errors), "errors", resp.Errors)
 		return nil, errors.New(resp.Errors[0])
 	}
 
-	//TODO(bzz): change to Protobuf
 	//data, err := resp.UAST.Marshal()
+	//TODO(bzz): change .proto, change back to Protobuf instead of JSON
 	data, err := json.Marshal(resp.UAST)
 	if err != nil {
-		fmt.Printf("\t\tError: failed to save UAST to ProtoBuff format for %s: %v\n", fName, err)
+		log.Error("Failed to serialize UAST", "file", fName, "err", err)
 		return nil, err
 	}
+
 	return &data, nil
 }
 
@@ -203,7 +207,7 @@ func findAllFetchedReposWithRef(refText string) map[model.SHA1]string {
 	q := model.NewRepositoryQuery().FindByStatus(model.Fetched)
 	rs, err := repoStorage.Find(q)
 	if err != nil {
-		fmt.Printf("Fained to query to DB %v\n", err)
+		log.Error("Failed to query DB", "err", err)
 		return nil
 	}
 
@@ -211,9 +215,10 @@ func findAllFetchedReposWithRef(refText string) map[model.SHA1]string {
 	for rs.Next() { // for each Repository
 		repo, err := rs.Get()
 		if err != nil {
-			fmt.Printf("Failed to retrive next row from DB %v\n", err)
+			log.Error("Failed to get next row from DB", "err", err)
 			continue
 		}
+
 		var masterRef *model.Reference // find "refs/heads/master".Init
 		for _, ref := range repo.References {
 			if strings.EqualFold(ref.Name, refText) {
@@ -222,9 +227,10 @@ func findAllFetchedReposWithRef(refText string) map[model.SHA1]string {
 			}
 		}
 		if masterRef == nil { // skipping repos \wo it
-			fmt.Printf("\t  Repo: %v does not have master ref\n", repo.Endpoints)
+			log.Warn("No reference found ", "repo", repo.ID, "reference", refText)
 			continue
 		}
+
 		repos[masterRef.Init] = repo.ID.String()
 	}
 	return repos
@@ -235,6 +241,6 @@ func checkIfError(err error) {
 		return
 	}
 
-	fmt.Printf("error: %s\n", err)
+	log.Error("Runtime error", "err", err)
 	os.Exit(1)
 }
