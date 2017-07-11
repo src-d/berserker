@@ -139,7 +139,11 @@ func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
 		reposNum++
 		totalFiles = totalFiles + sucFiles + errFiles + skpFiles
 
-		tx.Rollback()
+		err = tx.Rollback()
+		if err != nil {
+			log.Error("Failed to rollback tx for rooted repo", "repo", repoID, "err", err)
+			continue
+		}
 	}
 	log.Info("Done. All files in all repositories parsed", "repositories", reposNum, "files", totalFiles)
 	return result, nil
