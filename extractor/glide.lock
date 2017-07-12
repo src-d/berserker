@@ -1,13 +1,13 @@
-hash: 1afc4ea624e8b71215e54b15ae785443f069acf7aad085670f1a4f23d259fb05
-updated: 2017-07-06T17:42:57.627280203+02:00
+hash: 9102d7bfae648f8494798a476d3853bc6e6cdbc4476bb41462a23ddb85f84d5a
+updated: 2017-07-12T09:30:04.99725705+02:00
 imports:
 - name: github.com/bblfsh/sdk
-  version: fdc62e7f165867fe21ba940b3784eccfafa0c6d7
+  version: 67d54901d8ea4929ec5ff4a812825fd6ca6303b0
   subpackages:
   - protocol
   - uast
 - name: github.com/gogo/protobuf
-  version: f7a910660376f32540c32f398cce5c85081f62c6
+  version: 9df9efe4c742f1a2bfdedf1c3b6902fc6e814c6b
   subpackages:
   - gogoproto
   - proto
@@ -24,15 +24,15 @@ imports:
 - name: github.com/lann/ps
   version: 62de8c46ede02a7675c4c79c84883eb164cb71e3
 - name: github.com/lib/pq
-  version: 8837942c3e09574accbc5f150e2c5e057189cace
+  version: dd1fe2071026ce53f36a39112e645b4d4f5793a4
   subpackages:
   - oid
 - name: github.com/Masterminds/squirrel
   version: 20f192218cf52a73397fa2df45bdda720f3e47c8
 - name: github.com/mattn/go-colorable
-  version: ded68f7a9561c023e790de24279db7ebf473ea80
+  version: 3fa8c76f9daed4067e4a806fb7e4dc86455c6d6a
 - name: github.com/mattn/go-isatty
-  version: fc9e8d8ef48496124e79ae0df75490096eccf6fe
+  version: 57fdcb988a5c543893cc61bce354a6e24ab70022
 - name: github.com/mcuadros/go-defaults
   version: e1c978be3307be96ef03a0bd25d719ab50d277e4
 - name: github.com/oklog/ulid
@@ -54,13 +54,13 @@ imports:
   - token
   - types
 - name: github.com/streadway/amqp
-  version: dfe15e36048539f4cda41f240b27a5ca25b9cd46
+  version: 2cbfe40c9341ad63ba23e53013b3ddc7989d801c
 - name: github.com/toqueteos/trie
   version: 56fed4a05683322f125e2d78ee269bb102280392
 - name: github.com/xanzy/ssh-agent
   version: ba9c9e33906f58169366275e3450db66139a31a9
 - name: golang.org/x/crypto
-  version: e7ba82683099cae71475961448ab8f903ea77c26
+  version: 3627ff35f31987174dbee61d9d1dcc1c643e7174
   subpackages:
   - curve25519
   - ed25519
@@ -83,14 +83,14 @@ imports:
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: 6353ef0f924300eea566d3438817aa4d3374817e
+  version: 4ee4af566555f5fbe026368b75596286a312663a
   subpackages:
   - secure/bidirule
   - transform
   - unicode/bidi
   - unicode/norm
 - name: google.golang.org/appengine
-  version: a2f4131514e563cedfdb6e7d267df9ad48591e93
+  version: ad2570cd3913654e00c5f0183b39d2f998e54046
   subpackages:
   - datastore
   - internal
@@ -101,11 +101,11 @@ imports:
   - internal/modules
   - internal/remote_api
 - name: google.golang.org/genproto
-  version: aa2eb687b4d3e17154372564ad8d6bf11c3cf21f
+  version: d80a6e20e776b0b17a324d0ba1ab50a39c8e8944
   subpackages:
   - googleapis/rpc/status
 - name: google.golang.org/grpc
-  version: 3c33c26290b747350f8650c7d38bcc51b42dc785
+  version: 79f73d62e5082ee8d6b86a2487fd6267c1495fcd
   subpackages:
   - codes
   - credentials
@@ -131,7 +131,7 @@ imports:
   - bson
   - internal/json
 - name: gopkg.in/src-d/core-retrieval.v0
-  version: 2d35ac7cca4a7a1c0bb929d6419b815b129caf37
+  version: bf9b3d791c9df25da40efe0950c647713cc13f50
   subpackages:
   - model
   - repository
@@ -149,8 +149,8 @@ imports:
   - configurable
   - database
   - queue
-- name: gopkg.in/src-d/go-billy-siva.v2
-  version: ef50766c721fc7b2e762adf537d5556d86f6f1af
+- name: gopkg.in/src-d/go-billy-siva.v3
+  version: b15b35bba22ab049715a74125fb100faee83cd00
 - name: gopkg.in/src-d/go-billy.v3
   version: c329b7bc7b9d24905d2bc1b85bfa29f7ae266314
   subpackages:

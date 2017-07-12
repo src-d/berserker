@@ -20,10 +20,10 @@ import (
 	"gopkg.in/src-d/go-git.v4/plumbing/object" // object.File
 	"gopkg.in/src-d/go-git.v4/storage"
 
-	"gopkg.in/src-d/core-retrieval.v0" // core_retrieval.RootTransactioner
-	"gopkg.in/src-d/core.v0"           // core.ModelRepositoryStore
-	"gopkg.in/src-d/core.v0/model"     // model.Repository, model.Reference
-	"gopkg.in/src-d/enry.v1"           // lang detection
+	core_retrieval "gopkg.in/src-d/core-retrieval.v0" // core_retrieval.RootTransactioner
+	"gopkg.in/src-d/core.v0"                          // core.ModelRepositoryStore
+	"gopkg.in/src-d/core.v0/model"                    // model.Repository, model.Reference
+	"gopkg.in/src-d/enry.v1"                          // enry.* lang detection
 )
 
 type Service struct {
