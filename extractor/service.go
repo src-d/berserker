@@ -132,7 +132,10 @@ func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
 			}
 			return nil
 		})
-		checkIfError(err)
+		if err != nil {
+			log.Error("Failed to iterate files in", "repo", repoID)
+			continue
+		}
 		result = append(result, repo)
 
 		log.Info("Done. All files parsed", "repo", repoID, "success", sucFiles, "fail", errFiles, "skipped", skpFiles)
