@@ -9,7 +9,7 @@ type extractorServiceServer struct {
 }
 
 func NewExtractorServiceServer() *extractorServiceServer {
-	return &extractorServiceServer{&Service{}}
+	return &extractorServiceServer{NewService()}
 }
 func (s *extractorServiceServer) Service_GetRepositoriesData(ctx context.Context, in *Service_GetRepositoriesDataRequest) (result *Service_GetRepositoriesDataResponse, err error) {
 	result = new(Service_GetRepositoriesDataResponse)

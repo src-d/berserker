@@ -22,5 +22,9 @@ func main() {
 
 	extractor.RegisterExtractorServiceServer(grpcServer, extractor.NewExtractorServiceServer())
 	log.Info("server started", "URL", url)
-	log.Error("server error", "err", grpcServer.Serve(lis))
+
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		log.Error("server error", "err", err)
+	}
 }

@@ -6,13 +6,8 @@ import:
 - package: github.com/golang/protobuf
   subpackages:
   - proto
-- package: golang.org/x/net
-  subpackages:
-  - context
 - package: google.golang.org/grpc
 - package: gopkg.in/src-d/enry.v1
-- package: gopkg.in/src-d/go-billy.v3
-  version: ^3.0.1
 - package: gopkg.in/src-d/go-git.v4
   repo: https://github.com/src-d/go-git.git
   version: ce6f5b7c82fc6c2c4d41880ed6b26f921dd9c1c3
@@ -27,11 +22,9 @@ import:
   - storage/filesystem
   - utils/ioutil
 - package: gopkg.in/src-d/core-retrieval.v0
-  version: 2d35ac7cca4a7a1c0bb929d6419b815b129caf37
+  version: bf9b3d791c9df25da40efe0950c647713cc13f50
   subpackages:
   - model
   - repository
-- package: gopkg.in/src-d/core.v0
-  version: e2db1e8d9ca0e77302b5c8f181dbad90e65cedc8
-  subpackages:
-  - model
+- package: github.com/bblfsh/sdk
+  version: 67d54901d8ea4929ec5ff4a812825fd6ca6303b0
