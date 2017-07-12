@@ -10,20 +10,17 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/inconshreveable/log15"
-
 	"github.com/bblfsh/sdk/protocol"
+	log "github.com/inconshreveable/log15"
 	"google.golang.org/grpc"
-
-	"gopkg.in/src-d/go-git.v4"                 // git.Open
-	"gopkg.in/src-d/go-git.v4/plumbing"        // Hash, Repository
-	"gopkg.in/src-d/go-git.v4/plumbing/object" // object.File
+	core_retrieval "gopkg.in/src-d/core-retrieval.v0"
+	"gopkg.in/src-d/core.v0"
+	"gopkg.in/src-d/core.v0/model"
+	"gopkg.in/src-d/enry.v1"
+	"gopkg.in/src-d/go-git.v4"
+	"gopkg.in/src-d/go-git.v4/plumbing"
+	"gopkg.in/src-d/go-git.v4/plumbing/object"
 	"gopkg.in/src-d/go-git.v4/storage"
-
-	core_retrieval "gopkg.in/src-d/core-retrieval.v0" // core_retrieval.RootTransactioner
-	"gopkg.in/src-d/core.v0"                          // core.ModelRepositoryStore
-	"gopkg.in/src-d/core.v0/model"                    // model.Repository, model.Reference
-	"gopkg.in/src-d/enry.v1"                          // enry.* lang detection
 )
 
 type Service struct {
