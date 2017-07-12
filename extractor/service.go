@@ -112,7 +112,7 @@ func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
 				errFiles++
 				return nil
 			}
-			log.Debug(fmt.Sprintf("\t%-9s blob %s    %s\n", fLang, f.Hash, f.Name))
+			//log.Debug(fmt.Sprintf("\t%-9s blob %s    %s", fLang, f.Hash, f.Name))
 
 			// Babelfish -> UAST (Python, Java)
 			if strings.EqualFold(fLang, "java") || strings.EqualFold(fLang, "python") {
