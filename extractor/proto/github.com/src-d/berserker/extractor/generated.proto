@@ -12,7 +12,7 @@ message File {
 	option (gogoproto.typedecl) = false;
 	string language = 1;
 	string path = 2;
-	string uast = 3 [(gogoproto.customname) = "UAST"];
+	bytes uast = 3 [(gogoproto.customname) = "UAST"];
 	bytes hash = 4;
 }
 

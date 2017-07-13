@@ -17,6 +17,6 @@ type RepositoryData struct {
 type File struct {
 	Language string
 	Path     string
-	UAST     string
+	UAST     []byte
 	Hash     []byte
 }

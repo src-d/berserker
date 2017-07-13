@@ -26,7 +26,7 @@ class ExtractorService(host: String, port: Int, isPlainText: Boolean = true) {
             .toByteArray
             .map("%02x" format _)
             .mkString,
-          file.path, file.language, file.uast)
+          file.path, file.language, file.uast.toByteArray)
       }
     })
   }
