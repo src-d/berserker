@@ -29,7 +29,9 @@ type Service struct {
 
 func NewService() *Service {
 	//TODO(bzz): parametrize
-	bblfshConn, err := grpc.Dial("0.0.0.0:9432", grpc.WithTimeout(time.Second*2), grpc.WithInsecure())
+	bblfshAddr := "0.0.0.0:9432"
+	log.Info("Connecting to Bblfsh server", "address", bblfshAddr)
+	bblfshConn, err := grpc.Dial(bblfshAddr, grpc.WithTimeout(time.Second*2), grpc.WithInsecure())
 	client := protocol.NewProtocolServiceClient(bblfshConn)
 	checkIfError(err)
 
