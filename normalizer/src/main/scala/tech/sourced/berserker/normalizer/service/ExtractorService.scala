@@ -20,13 +20,13 @@ class ExtractorService(host: String, port: Int, isPlainText: Boolean = true) {
         repoId = rd.repositoryId
         repoUrl = rd.url
       } yield {
-        Row(repoId,
-          repoUrl,
+        Row(repoId, repoUrl,
           Option(file.hash)
             .orNull
             .toByteArray
             .map("%02x" format _)
-            .mkString, file.path, file.language, file.uast)
+            .mkString,
+          file.path, file.language, file.uast)
       }
     })
   }
