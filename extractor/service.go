@@ -69,7 +69,7 @@ func (s *Service) getRerposData(n uint64) ([]*RepositoryData, error) {
 	totalFiles := 0
 	for masterRefInit, repoMetadata := range findAllFetchedReposWithRef(master, n) {
 		repo, processedFiles, err := s.processRepository(repoMetadata, master, masterRefInit)
-		if err != nil && repo == nil { //partially processed repos are OK
+		if err != nil && repo == nil { // partially processed repos are OK
 			//TODO(bzz): move loggin/error handing here instead of s.processRepository()
 			continue
 		}
@@ -80,6 +80,12 @@ func (s *Service) getRerposData(n uint64) ([]*RepositoryData, error) {
 	}
 
 	log.Info("Done. All files in all repositories parsed", "repositories", reposNum, "files", totalFiles)
+
+	log.Debug("Serializing files in", "repositories", len(result))
+	for _, r := range result {
+		log.Debug("Repository", "ID", r.RepositoryID, "URL", r.URL, "number of files", len(r.Files))
+	}
+
 	return result, nil
 }
 
