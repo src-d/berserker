@@ -30,8 +30,14 @@ type Service struct {
 func NewService(n uint64) *Service {
 	//TODO(bzz): parametrize
 	bblfshAddr := "0.0.0.0:9432"
+	grpcMaxMsgSize := 100 * 1024 * 1024
 	log.Info("Connecting to Bblfsh server", "address", bblfshAddr)
-	bblfshConn, err := grpc.Dial(bblfshAddr, grpc.WithTimeout(time.Second*2), grpc.WithInsecure())
+	bblfshConn, err := grpc.Dial(bblfshAddr,
+		grpc.WithTimeout(time.Second*2),
+		grpc.WithInsecure(),
+		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(grpcMaxMsgSize)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(grpcMaxMsgSize)),
+	)
 	client := protocol.NewProtocolServiceClient(bblfshConn)
 	checkIfError(err)
 
