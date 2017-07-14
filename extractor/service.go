@@ -22,6 +22,8 @@ import (
 	"gopkg.in/src-d/go-git.v4/storage"
 )
 
+const maxNumOfThousendsOfFilesToProcsee = 10
+
 type Service struct {
 	bblfshClient protocol.ProtocolServiceClient
 	limit        uint64
@@ -53,18 +55,11 @@ func (s *Service) GetRepositoryData(r *Request) (*RepositoryData, error) {
 
 //proteus:generate
 func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
-	return s.getRerpoData(s.limit)
+	return s.getRerposData(s.limit)
 }
 
-func (s *Service) getRerpoData(n uint64) ([]*RepositoryData, error) {
-	if n <= 0 {
-		k, err := core.ModelRepositoryStore().Count(model.NewRepositoryQuery().FindByStatus(model.Fetched))
-		if err != nil {
-			log.Error("Could not connect to DB to get the number of 'fetched' repositories", "err", err)
-			return nil, err
-		}
-		n = uint64(k)
-	}
+func (s *Service) getRerposData(n uint64) ([]*RepositoryData, error) {
+	n = allOrN(n)
 	log.Info("Iterating over N repositories in DB", "N", n)
 
 	const master = "refs/heads/master"
@@ -74,7 +69,8 @@ func (s *Service) getRerpoData(n uint64) ([]*RepositoryData, error) {
 	totalFiles := 0
 	for masterRefInit, repoMetadata := range findAllFetchedReposWithRef(master, n) {
 		repo, processedFiles, err := s.processRepository(repoMetadata, master, masterRefInit)
-		if err != nil {
+		if err != nil && repo == nil { //partially processed repos are OK
+			//TODO(bzz): move loggin/error handing here instead of s.processRepository()
 			continue
 		}
 
@@ -115,8 +111,11 @@ func (s *Service) processRepository(repoMetadata *model.Repository, master strin
 	err = tree.Files().ForEach(func(f *object.File) error {
 		i := (skpFiles + sucFiles + errFiles) % 1000
 		batch := (skpFiles + sucFiles + errFiles) / 1000
-		if i == 0 && batch != 0 {
+		if i == 0 && batch != 0 { // CLI progress indicator
 			fmt.Printf("\t%d000 files...\n", batch)
+		}
+		if batch > maxNumOfThousendsOfFilesToProcsee { // only first 10k files
+			return fmt.Errorf("Too many files in a repo. Stopping after 10k")
 		}
 
 		// discard vendoring with enry
@@ -162,7 +161,7 @@ func (s *Service) processRepository(repoMetadata *model.Repository, master strin
 	})
 	if err != nil {
 		log.Error("Failed to iterate files in", "repo", repoID)
-		return nil, sucFiles + errFiles + skpFiles, err
+		return repo, sucFiles + errFiles + skpFiles, err
 	}
 
 	log.Info("Done. All files parsed", "repo", repoID, "success", sucFiles, "fail", errFiles, "skipped", skpFiles)
@@ -266,6 +265,19 @@ func findAllFetchedReposWithRef(refText string, n uint64) map[model.SHA1]*model.
 	return repos
 }
 
+// If N=0, get total number of fetched respoitories from DB. Use N otherwise.
+func allOrN(n uint64) uint64 {
+	const defaultN = 10
+	if n <= 0 {
+		k, err := core.ModelRepositoryStore().Count(model.NewRepositoryQuery().FindByStatus(model.Fetched))
+		if err != nil {
+			log.Error("Cann't connect to DB to get the number of 'fetched' repositories", "err", err)
+			k = defaultN
+		}
+		n = uint64(k)
+	}
+	return n
+}
 func checkIfError(err error) {
 	if err == nil {
 		return
