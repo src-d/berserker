@@ -63,7 +63,7 @@ func (s *Service) getRerposData(n uint64) ([]*RepositoryData, error) {
 	log.Info("Iterating over N repositories in DB", "N", n)
 
 	const master = "refs/heads/master"
-	result := make([]*RepositoryData, n)
+	var result []*RepositoryData
 
 	reposNum := 0
 	totalFiles := 0
