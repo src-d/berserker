@@ -24,9 +24,10 @@ import (
 
 type Service struct {
 	bblfshClient protocol.ProtocolServiceClient
+	limit        uint64
 }
 
-func NewService() *Service {
+func NewService(n uint64) *Service {
 	//TODO(bzz): parametrize
 	bblfshAddr := "0.0.0.0:9432"
 	log.Info("Connecting to Bblfsh server", "address", bblfshAddr)
@@ -34,7 +35,8 @@ func NewService() *Service {
 	client := protocol.NewProtocolServiceClient(bblfshConn)
 	checkIfError(err)
 
-	return &Service{bblfshClient: client}
+	log.Info("Limiting number of repositories to N", "N", n)
+	return &Service{bblfshClient: client, limit: n}
 }
 
 //proteus:generate
@@ -45,10 +47,10 @@ func (s *Service) GetRepositoryData(r *Request) (*RepositoryData, error) {
 
 //proteus:generate
 func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
-	return s.GetRerpoData(0) //all
+	return s.getRerpoData(s.limit) //all
 }
 
-func (s *Service) GetRerpoData(n uint64) ([]*RepositoryData, error) {
+func (s *Service) getRerpoData(n uint64) ([]*RepositoryData, error) {
 	if n <= 0 {
 		k, err := core.ModelRepositoryStore().Count(model.NewRepositoryQuery().FindByStatus(model.Fetched))
 		if err != nil {
@@ -57,7 +59,7 @@ func (s *Service) GetRerpoData(n uint64) ([]*RepositoryData, error) {
 		}
 		n = uint64(k)
 	}
-	log.Info("Iterating over repositories in DB", "status:fetched", n)
+	log.Info("Iterating over N repositories in DB", "N", n)
 
 	const master = "refs/heads/master"
 	result := make([]*RepositoryData, n)

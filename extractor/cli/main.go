@@ -12,7 +12,7 @@ import (
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 var memprofile = flag.String("memprofile", "", "write memory profile to this file")
-var n = flag.Uint64("n", 0, "number of repositories, 0 = All from DB")
+var limit = flag.Uint64("limit", 0, "number of repositories, 0 = All from DB")
 
 func main() {
 	flag.Parse()
@@ -25,8 +25,8 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	extractorService := extractor.NewService()
-	repos, err := extractorService.GetRerpoData(*n)
+	extractorService := extractor.NewService(*limit)
+	repos, err := extractorService.GetRepositoriesData()
 	checkIfError(err)
 	fmt.Printf("Repos returned: %d\n", len(repos))
 
