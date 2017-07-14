@@ -45,19 +45,26 @@ func (s *Service) GetRepositoryData(r *Request) (*RepositoryData, error) {
 
 //proteus:generate
 func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
-	n, err := core.ModelRepositoryStore().Count(model.NewRepositoryQuery().FindByStatus(model.Fetched))
-	if err != nil {
-		log.Error("Could not connect to DB to get the number of 'fetched' repositories", "err", err)
-	} else {
-		log.Info("Iterating over repositories in DB", "status:fetched", n)
+	return s.GetRerpoData(0) //all
+}
+
+func (s *Service) GetRerpoData(n uint64) ([]*RepositoryData, error) {
+	if n <= 0 {
+		k, err := core.ModelRepositoryStore().Count(model.NewRepositoryQuery().FindByStatus(model.Fetched))
+		if err != nil {
+			log.Error("Could not connect to DB to get the number of 'fetched' repositories", "err", err)
+			return nil, err
+		}
+		n = uint64(k)
 	}
+	log.Info("Iterating over repositories in DB", "status:fetched", n)
 
 	const master = "refs/heads/master"
 	result := make([]*RepositoryData, n)
 
 	reposNum := 0
 	totalFiles := 0
-	for masterRefInit, repoID := range findAllFetchedReposWithRef(master) {
+	for masterRefInit, repoID := range findAllFetchedReposWithRef(master, n) {
 		log.Info("Processing repository", "id", repoID)
 		repo := &RepositoryData{
 			RepositoryID: repoID,
@@ -205,9 +212,9 @@ func parseToUast(client protocol.ProtocolServiceClient, fName string, fLang stri
 }
 
 // Collects all Repository metadata in-memory
-func findAllFetchedReposWithRef(refText string) map[model.SHA1]string {
+func findAllFetchedReposWithRef(refText string, n uint64) map[model.SHA1]string {
 	repoStorage := core.ModelRepositoryStore()
-	q := model.NewRepositoryQuery().FindByStatus(model.Fetched)
+	q := model.NewRepositoryQuery().FindByStatus(model.Fetched).Limit(n)
 	rs, err := repoStorage.Find(q)
 	if err != nil {
 		log.Error("Failed to query DB", "err", err)
@@ -215,7 +222,8 @@ func findAllFetchedReposWithRef(refText string) map[model.SHA1]string {
 	}
 
 	repos := make(map[model.SHA1]string)
-	for rs.Next() { // for each Repository
+	for rs.Next() {
+		// for each Repository
 		repo, err := rs.Get()
 		if err != nil {
 			log.Error("Failed to get next row from DB", "err", err)
@@ -229,7 +237,8 @@ func findAllFetchedReposWithRef(refText string) map[model.SHA1]string {
 				break
 			}
 		}
-		if masterRef == nil { // skipping repos \wo it
+		if masterRef == nil {
+			// skipping repos \wo it
 			log.Warn("No reference found ", "repo", repo.ID, "reference", refText)
 			continue
 		}
