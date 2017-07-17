@@ -5,6 +5,8 @@ import org.apache.spark.sql.SparkSession
 import tech.sourced.berserker.normalizer.model.Schema
 import tech.sourced.berserker.normalizer.service.ExtractorService
 
+import scala.util.Properties
+
 /**
   * Start Berserker application.
   *
@@ -21,16 +23,20 @@ import tech.sourced.berserker.normalizer.service.ExtractorService
   * output
   */
 object Main extends App {
-  var conf = new SparkConf()
-  conf.setAppName("berserker")
-  var grpcHost = conf.get("tech.sourced.berserker.grpc.host", "localhost")
-  var grpcPort = conf.getInt("tech.sourced.berserker.grpc.port", 8888)
-  var grpcPlainText = conf.getBoolean("tech.sourced.berserker.grpc.plaintext",
-    defaultValue = true)
-  var parquetMode = conf.get("tech.sourced.berserker.parquet.files.mode", "overwrite")
-  var parquetFilename = conf.get("tech.sourced.berserker.parquet.files.name", "files")
+  val conf = new SparkConf()
+  val sparkMaster = Properties.envOrElse("MASTER", "local[*]")
 
-  val spark = SparkSession.builder().config(conf).getOrCreate()
+  val grpcHost = conf.get("tech.sourced.berserker.grpc.host", "localhost")
+  val grpcPort = conf.getInt("tech.sourced.berserker.grpc.port", 8888)
+  val grpcPlainText = conf.getBoolean("tech.sourced.berserker.grpc.plaintext", defaultValue = true)
+  val parquetMode = conf.get("tech.sourced.berserker.parquet.files.mode", "overwrite")
+  val parquetFilename = conf.get("tech.sourced.berserker.parquet.files.name", "files")
+
+  val spark = SparkSession.builder()
+    .config(conf)
+    .appName("berserker")
+    .master(sparkMaster)
+    .getOrCreate()
 
   // Start gRPC connection
   val extractorService = ExtractorService(grpcHost, grpcPort, grpcPlainText)

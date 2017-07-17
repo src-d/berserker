@@ -2,3 +2,7 @@
 *.log
 extractor/vendor
 **/target/**
+.idea
+#*
+.DS_Store
+*.iml

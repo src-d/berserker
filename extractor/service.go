@@ -2,7 +2,6 @@ package extractor
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -125,7 +124,7 @@ func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
 				file := File{
 					Language: fLang,
 					Path:     f.Name,
-					UAST:     string(*uast), //TODO(bzz): change .proto, make UAST `byte` when using Protobuf (now JSON)
+					UAST:     *uast,
 				}
 				repo.Files = append(repo.Files, file)
 			}
@@ -196,9 +195,7 @@ func parseToUast(client protocol.ProtocolServiceClient, fName string, fLang stri
 		return nil, errors.New(resp.Errors[0])
 	}
 
-	//data, err := resp.UAST.Marshal()
-	//TODO(bzz): change .proto, change back to Protobuf instead of JSON
-	data, err := json.Marshal(resp.UAST)
+	data, err := resp.UAST.Marshal()
 	if err != nil {
 		log.Error("Failed to serialize UAST", "file", fName, "err", err)
 		return nil, err
