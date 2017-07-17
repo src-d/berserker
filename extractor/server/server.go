@@ -28,7 +28,7 @@ func main() {
 		panic(err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.MaxSendMsgSize(extractor.GrpcMaxMsgSize))
 
 	extractor.RegisterExtractorServiceServer(grpcServer, extractor.NewExtractorServiceServer(*limit))
 	log.Info("server started", "address", grpcAddr)
