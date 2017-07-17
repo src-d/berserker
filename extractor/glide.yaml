@@ -1,30 +1,34 @@
 package: github.com/src-d/berserker/extractor
 import:
+- package: github.com/bblfsh/sdk
+  version: c829390f1f87d418285ebacb63bb0b201c6ea903
+  subpackages:
+  - protocol
 - package: github.com/gogo/protobuf
+  version: ^0.4.0
   subpackages:
   - gogoproto
 - package: github.com/golang/protobuf
   subpackages:
   - proto
-- package: google.golang.org/grpc
-- package: gopkg.in/src-d/enry.v1
-- package: gopkg.in/src-d/go-git.v4
-  repo: https://github.com/src-d/go-git.git
-  version: ce6f5b7c82fc6c2c4d41880ed6b26f921dd9c1c3
+- package: github.com/inconshreveable/log15
+  version: ^2.11.0
+- package: golang.org/x/net
   subpackages:
-  - config
-  - plumbing
-  - plumbing/object
-  - plumbing/storer
-  - plumbing/transport
-  - plumbing/transport/client
-  - plumbing/transport/server
-  - storage/filesystem
-  - utils/ioutil
+  - context
+- package: google.golang.org/grpc
+  version: ^1.4.2
 - package: gopkg.in/src-d/core-retrieval.v0
-  version: bf9b3d791c9df25da40efe0950c647713cc13f50
+- package: gopkg.in/src-d/core.v0
   subpackages:
   - model
-  - repository
-- package: github.com/bblfsh/sdk
-  version: 67d54901d8ea4929ec5ff4a812825fd6ca6303b0
+- package: gopkg.in/src-d/enry.v1
+  version: ^1.3.0
+- package: gopkg.in/src-d/go-git.v4
+  version: ^4.0.0-rc12
+  subpackages:
+  - plumbing
+  - plumbing/object
+  - storage
+- package: golang.org/x/crypto
+  version: 7f7c0c2d75ebb4e32a21396ce36e87b6dadc91c9

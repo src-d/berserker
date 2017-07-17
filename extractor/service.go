@@ -210,10 +210,10 @@ func parseToUast(client protocol.ProtocolServiceClient, fName string, fLang stri
 	//TODO(bzz): take care of non-UTF8 things, before sending them
 	//  - either encode in utf8
 	//  - or convert to base64() and set encoding param
-	req := &protocol.ParseUASTRequest{
+	req := &protocol.ParseRequest{
 		Content:  fContent,
 		Language: fLang}
-	resp, err := client.ParseUAST(context.TODO(), req)
+	resp, err := client.Parse(context.TODO(), req)
 	if err != nil {
 		log.Error("ParseUAST failed on gRPC level", "file", fName, "err", err)
 		return nil, err
