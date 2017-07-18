@@ -1,6 +1,7 @@
 package tech.sourced.berserker.normalizer
 
 import org.apache.spark.SparkConf
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import tech.sourced.berserker.normalizer.model.Schema
 import tech.sourced.berserker.normalizer.service.ExtractorService
@@ -42,9 +43,8 @@ object Main extends App {
   // Start gRPC connection
   val extractorService = ExtractorService(grpcHost, grpcPort, grpcPlainText)
 
-  val repoIds = queryMetadataDbForAllFetchRepos()
-  val dataRDD = spark.sparkContext
-    .parallelize(repoIds, numberOfWorkers)
+  val dataRDD = queryMetadataDbForAllFetchRepos()
+    .repartition(numberOfWorkers)
     .mapPartitions(partition => {
       //TODO(bzz): start executor-server Golang binary
       extractorService.getRepositoriesData(partition.toSeq).toIterator
@@ -58,9 +58,22 @@ object Main extends App {
   dataDF.show(10)
 
 
-  def queryMetadataDbForAllFetchRepos(): Seq[String] = {
-    //TODO(bzz): jdbc to query DB
-    return Seq("")
+  def queryMetadataDbForAllFetchRepos(n: Int = 0): RDD[String] = {
+    import spark.implicits._
+    val jdbcDF = spark.read
+      .format("jdbc")
+      .option("url", "jdbc:postgresql://localhost:5432/testing")
+      .option("dbtable", "repositories")
+      .option("user", "testing")
+      .option("password", "testing")
+      .load()
+
+    val ids = if (n > 0) {
+      jdbcDF.select($"id").limit(n)
+    } else {
+      jdbcDF.select($"id")
+    }
+    return ids.rdd.map(_.getString(0))
   }
 
 }
