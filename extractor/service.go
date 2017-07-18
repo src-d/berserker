@@ -23,7 +23,7 @@ import (
 )
 
 const maxNumOfThousendsOfFilesToProcsee = 10
-const	GrpcMaxMsgSize = 100 * 1024 * 1024
+const GrpcMaxMsgSize = 100 * 1024 * 1024
 
 type Service struct {
 	bblfshClient protocol.ProtocolServiceClient
@@ -145,7 +145,6 @@ func (s *Service) processRepository(repoMetadata *model.Repository, master strin
 			errFiles++
 			return nil
 		}
-		//log.Debug(fmt.Sprintf("\t%-9s blob %s    %s", fLang, f.Hash, f.Name))
 
 		// Babelfish -> UAST (Python, Java)
 		if strings.EqualFold(fLang, "java") || strings.EqualFold(fLang, "python") {
