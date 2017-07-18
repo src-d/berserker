@@ -2,7 +2,7 @@ package extractor
 
 // proteus:generate
 type Request struct {
-	RepositoryIDs   RepositoryIDs
+	RepositoryIDs  RepositoryIDs
 	RootCommitHash []byte
 	Reference      string
 }
@@ -20,5 +20,5 @@ type File struct {
 	Language string
 	Path     string
 	UAST     []byte
-	Hash     []byte
+	Hash     string
 }

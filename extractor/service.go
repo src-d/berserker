@@ -159,6 +159,7 @@ func (s *Service) processRepository(repoMetadata *model.Repository, master strin
 				Language: fLang,
 				Path:     f.Name,
 				UAST:     *uast,
+				Hash:     tree.Hash.String(),
 			}
 			repo.Files = append(repo.Files, file)
 		}

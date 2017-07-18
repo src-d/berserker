@@ -16,23 +16,17 @@ class ExtractorService(host: String, port: Int, isPlainText: Boolean = true) {
   private val stub = ExtractorServiceGrpc.blockingStub(channel)
 
   def getRepositoriesData(repoIds: Seq[String]): Seq[Row] = {
-    val reply = stub.serviceGetRepositoriesData(Request(repoIds))
-
-    reply.result1.flatMap(rd => {
+    val grpcReply = stub.serviceGetRepositoriesData(Request(repoIds))
+    val files = grpcReply.result1.flatMap(repo => {
       for {
-        file <- rd.files
-        repoId = rd.repositoryId
-        repoUrl = rd.url
+        file <- repo.files
+        repoId = repo.repositoryId
+        repoUrl = repo.url
       } yield {
-        Row(repoId, repoUrl,
-          Option(file.hash)
-            .orNull
-            .toByteArray
-            .map("%02x" format _)
-            .mkString,
-          file.path, file.language, file.uast.toByteArray)
+        Row(repoId, repoUrl, Option(file.hash).orNull, file.path, file.language, file.uast.toByteArray)
       }
     })
+    files
   }
 }
 
