@@ -6,3 +6,4 @@ extractor/vendor
 #*
 .DS_Store
 *.iml
+*~

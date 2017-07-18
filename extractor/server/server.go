@@ -13,11 +13,12 @@ import (
 )
 
 var profiler = flag.Bool("profiler", false, "start CPU & memeory profiler")
+var limit = flag.Uint64("limit", 0, "number of repositories, 0 = All from DB")
 
 func main() {
 	flag.Parse()
 	// TODO parametrize
-	profilerAddr := "localhost:6062"
+	profilerAddr := "localhost:6063"
 	grpcAddr := "localhost:8888"
 
 	startHTTPProfilingMaybe(profilerAddr)
@@ -27,9 +28,9 @@ func main() {
 		panic(err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.MaxSendMsgSize(extractor.GrpcMaxMsgSize))
 
-	extractor.RegisterExtractorServiceServer(grpcServer, extractor.NewExtractorServiceServer())
+	extractor.RegisterExtractorServiceServer(grpcServer, extractor.NewExtractorServiceServer(*limit))
 	log.Info("server started", "address", grpcAddr)
 
 	err = grpcServer.Serve(lis)

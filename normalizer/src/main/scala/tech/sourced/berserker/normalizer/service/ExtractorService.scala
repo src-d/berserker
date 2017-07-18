@@ -5,9 +5,13 @@ import io.grpc.ManagedChannelBuilder
 import org.apache.spark.sql.Row
 
 class ExtractorService(host: String, port: Int, isPlainText: Boolean = true) {
+
+  private val maxGrpcMsgSize = 100 * 1042 * 1042
   private val channel = ManagedChannelBuilder
     .forAddress(host, port)
-    .usePlaintext(isPlainText).build()
+    .usePlaintext(isPlainText)
+    .maxInboundMessageSize(maxGrpcMsgSize)
+    .build()
 
   private val stub = ExtractorServiceGrpc.blockingStub(channel)
 

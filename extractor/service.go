@@ -22,19 +22,29 @@ import (
 	"gopkg.in/src-d/go-git.v4/storage"
 )
 
+const maxNumOfThousendsOfFilesToProcsee = 10
+const GrpcMaxMsgSize = 100 * 1024 * 1024
+
 type Service struct {
 	bblfshClient protocol.ProtocolServiceClient
+	limit        uint64
 }
 
-func NewService() *Service {
+func NewService(n uint64) *Service {
 	//TODO(bzz): parametrize
 	bblfshAddr := "0.0.0.0:9432"
 	log.Info("Connecting to Bblfsh server", "address", bblfshAddr)
-	bblfshConn, err := grpc.Dial(bblfshAddr, grpc.WithTimeout(time.Second*2), grpc.WithInsecure())
+	bblfshConn, err := grpc.Dial(bblfshAddr,
+		grpc.WithTimeout(time.Second*2),
+		grpc.WithInsecure(),
+		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(GrpcMaxMsgSize)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(GrpcMaxMsgSize)),
+	)
 	client := protocol.NewProtocolServiceClient(bblfshConn)
 	checkIfError(err)
 
-	return &Service{bblfshClient: client}
+	log.Info("Limiting number of repositories to N", "N", n)
+	return &Service{bblfshClient: client, limit: n}
 }
 
 //proteus:generate
@@ -45,109 +55,128 @@ func (s *Service) GetRepositoryData(r *Request) (*RepositoryData, error) {
 
 //proteus:generate
 func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
-	n, err := core.ModelRepositoryStore().Count(model.NewRepositoryQuery().FindByStatus(model.Fetched))
-	if err != nil {
-		log.Error("Could not connect to DB to get the number of 'fetched' repositories", "err", err)
-	} else {
-		log.Info("Iterating over repositories in DB", "status:fetched", n)
-	}
+	return s.getRerposData(s.limit)
+}
+
+func (s *Service) getRerposData(n uint64) ([]*RepositoryData, error) {
+	n = allOrN(n)
+	log.Info("Iterating over N repositories in DB", "N", n)
 
 	const master = "refs/heads/master"
-	result := make([]*RepositoryData, n)
+	var result []*RepositoryData
 
 	reposNum := 0
 	totalFiles := 0
-	for masterRefInit, repoID := range findAllFetchedReposWithRef(master) {
-		log.Info("Processing repository", "id", repoID)
-		repo := &RepositoryData{
-			RepositoryID: repoID,
-			URL:          "", //TODO(bzz): add repo url!
-			Files:        make([]File, 100),
-		}
-
-		rootedTransactioner := core_retrieval.RootedTransactioner()
-		tx, err := rootedTransactioner.Begin(plumbing.Hash(masterRefInit))
-		if err != nil {
-			log.Error("Failed to begin tx for rooted repo", "id", repoID, "hash", masterRefInit, "err", err)
+	for masterRefInit, repoMetadata := range findAllFetchedReposWithRef(master, n) {
+		repo, processedFiles, err := s.processRepository(repoMetadata, master, masterRefInit)
+		if err != nil && repo == nil { // partially processed repos are OK
+			//TODO(bzz): move loggin/error handing here instead of s.processRepository()
 			continue
 		}
 
-		tree, err := gitOpenGetTree(tx.Storer(), repoID, masterRefInit, master)
-		if err != nil {
-			log.Error("Failed to open&get tree from rooted repo", "id", repoID, "hash", masterRefInit, "err", err)
-			_ = tx.Rollback()
-			continue
-		}
-
-		skpFiles := 0
-		sucFiles := 0
-		errFiles := 0
-		err = tree.Files().ForEach(func(f *object.File) error {
-			i := (skpFiles + sucFiles + errFiles) % 1000
-			batch := (skpFiles + sucFiles + errFiles) / 1000
-			if i == 0 && batch != 0 {
-				fmt.Printf("\t%d000 files...\n", batch)
-			}
-
-			// discard vendoring with enry
-			if enry.IsVendor(f.Name) || enry.IsDotFile(f.Name) ||
-				enry.IsDocumentation(f.Name) || enry.IsConfiguration(f.Name) {
-				skpFiles++
-				return nil
-			} //TODO(bzz): filter binaries like .apk and .jar
-
-			// detect language with enry
-			fContent, err := f.Contents()
-			if err != nil {
-				log.Warn("Failed to read", "file", f.Name, "err", err)
-				errFiles++
-				return nil
-			}
-
-			fLang := enry.GetLanguage(f.Name, []byte(fContent))
-			if err != nil {
-				log.Warn("Failed to detect language", "file", f.Name, "err", err)
-				errFiles++
-				return nil
-			}
-			//log.Debug(fmt.Sprintf("\t%-9s blob %s    %s", fLang, f.Hash, f.Name))
-
-			// Babelfish -> UAST (Python, Java)
-			if strings.EqualFold(fLang, "java") || strings.EqualFold(fLang, "python") {
-				uast, err := parseToUast(s.bblfshClient, f.Name, strings.ToLower(fLang), fContent)
-				if err != nil {
-					errFiles++
-					return nil
-				}
-
-				sucFiles++
-				file := File{
-					Language: fLang,
-					Path:     f.Name,
-					UAST:     *uast,
-				}
-				repo.Files = append(repo.Files, file)
-			}
-			return nil
-		})
-		if err != nil {
-			log.Error("Failed to iterate files in", "repo", repoID)
-			continue
-		}
 		result = append(result, repo)
-
-		log.Info("Done. All files parsed", "repo", repoID, "success", sucFiles, "fail", errFiles, "skipped", skpFiles)
 		reposNum++
-		totalFiles = totalFiles + sucFiles + errFiles + skpFiles
-
-		err = tx.Rollback()
-		if err != nil {
-			log.Error("Failed to rollback tx for rooted repo", "repo", repoID, "err", err)
-			continue
-		}
+		totalFiles = totalFiles + processedFiles
 	}
+
 	log.Info("Done. All files in all repositories parsed", "repositories", reposNum, "files", totalFiles)
+
+	log.Debug("Serializing files in", "repositories", len(result))
+	for _, r := range result {
+		log.Debug("Repository", "ID", r.RepositoryID, "URL", r.URL, "number of files", len(r.Files))
+	}
+
 	return result, nil
+}
+
+func (s *Service) processRepository(repoMetadata *model.Repository, master string, masterRefInit model.SHA1) (*RepositoryData, int, error) {
+	repoID := repoMetadata.ID.String()
+	log.Info("Processing repository", "id", repoID)
+	repo := &RepositoryData{
+		RepositoryID: repoID,
+		URL:          repoMetadata.Endpoints[0], //no endpoints?
+		Files:        make([]File, 100),
+	}
+
+	tx, err := core_retrieval.RootedTransactioner().Begin(plumbing.Hash(masterRefInit))
+	if err != nil {
+		log.Error("Failed to begin tx for rooted repo", "id", repoID, "hash", masterRefInit, "err", err)
+		return nil, 0, err
+	}
+
+	tree, err := gitOpenGetTree(tx.Storer(), repoID, masterRefInit, master)
+	if err != nil {
+		log.Error("Failed to open&get tree from rooted repo", "id", repoID, "hash", masterRefInit, "err", err)
+		_ = tx.Rollback()
+		return nil, 0, err
+	}
+
+	skpFiles := 0
+	sucFiles := 0
+	errFiles := 0
+	err = tree.Files().ForEach(func(f *object.File) error {
+		i := (skpFiles + sucFiles + errFiles) % 1000
+		batch := (skpFiles + sucFiles + errFiles) / 1000
+		if i == 0 && batch != 0 { // CLI progress indicator
+			fmt.Printf("\t%d000 files...\n", batch)
+		}
+		if batch > maxNumOfThousendsOfFilesToProcsee { // only first 10k files
+			return fmt.Errorf("Too many files in a repo. Stopping after 10k")
+		}
+
+		// discard vendoring with enry
+		if enry.IsVendor(f.Name) || enry.IsDotFile(f.Name) ||
+			enry.IsDocumentation(f.Name) || enry.IsConfiguration(f.Name) {
+			skpFiles++
+			return nil
+		} //TODO(bzz): filter binaries like .apk and .jar
+
+		// detect language with enry
+		fContent, err := f.Contents()
+		if err != nil {
+			log.Warn("Failed to read", "file", f.Name, "err", err)
+			errFiles++
+			return nil
+		}
+
+		fLang := enry.GetLanguage(f.Name, []byte(fContent))
+		if err != nil {
+			log.Warn("Failed to detect language", "file", f.Name, "err", err)
+			errFiles++
+			return nil
+		}
+
+		// Babelfish -> UAST (Python, Java)
+		if strings.EqualFold(fLang, "java") || strings.EqualFold(fLang, "python") {
+			uast, err := parseToUast(s.bblfshClient, f.Name, strings.ToLower(fLang), fContent)
+			if err != nil {
+				errFiles++
+				return nil
+			}
+
+			sucFiles++
+			file := File{
+				Language: fLang,
+				Path:     f.Name,
+				UAST:     *uast,
+			}
+			repo.Files = append(repo.Files, file)
+		}
+		return nil
+	})
+	if err != nil {
+		log.Error("Failed to iterate files in", "repo", repoID)
+		return repo, sucFiles + errFiles + skpFiles, err
+	}
+
+	log.Info("Done. All files parsed", "repo", repoID, "success", sucFiles, "fail", errFiles, "skipped", skpFiles)
+	err = tx.Rollback()
+	if err != nil {
+		log.Error("Failed to rollback tx for rooted repo", "repo", repoID, "err", err)
+		return nil, sucFiles + errFiles + skpFiles, err
+	}
+
+	return repo, sucFiles + errFiles + skpFiles, nil
 }
 
 func gitOpenGetTree(txStorer storage.Storer, repoID string, masterRefInit model.SHA1, master string) (*object.Tree, error) {
@@ -180,10 +209,10 @@ func parseToUast(client protocol.ProtocolServiceClient, fName string, fLang stri
 	//TODO(bzz): take care of non-UTF8 things, before sending them
 	//  - either encode in utf8
 	//  - or convert to base64() and set encoding param
-	req := &protocol.ParseUASTRequest{
+	req := &protocol.ParseRequest{
 		Content:  fContent,
 		Language: fLang}
-	resp, err := client.ParseUAST(context.TODO(), req)
+	resp, err := client.Parse(context.TODO(), req)
 	if err != nil {
 		log.Error("ParseUAST failed on gRPC level", "file", fName, "err", err)
 		return nil, err
@@ -205,17 +234,18 @@ func parseToUast(client protocol.ProtocolServiceClient, fName string, fLang stri
 }
 
 // Collects all Repository metadata in-memory
-func findAllFetchedReposWithRef(refText string) map[model.SHA1]string {
+func findAllFetchedReposWithRef(refText string, n uint64) map[model.SHA1]*model.Repository {
 	repoStorage := core.ModelRepositoryStore()
-	q := model.NewRepositoryQuery().FindByStatus(model.Fetched)
+	q := model.NewRepositoryQuery().FindByStatus(model.Fetched).Limit(n)
 	rs, err := repoStorage.Find(q)
 	if err != nil {
 		log.Error("Failed to query DB", "err", err)
 		return nil
 	}
 
-	repos := make(map[model.SHA1]string)
-	for rs.Next() { // for each Repository
+	repos := make(map[model.SHA1]*model.Repository)
+	for rs.Next() {
+		// for each Repository
 		repo, err := rs.Get()
 		if err != nil {
 			log.Error("Failed to get next row from DB", "err", err)
@@ -229,16 +259,30 @@ func findAllFetchedReposWithRef(refText string) map[model.SHA1]string {
 				break
 			}
 		}
-		if masterRef == nil { // skipping repos \wo it
+		if masterRef == nil {
+			// skipping repos \wo it
 			log.Warn("No reference found ", "repo", repo.ID, "reference", refText)
 			continue
 		}
 
-		repos[masterRef.Init] = repo.ID.String()
+		repos[masterRef.Init] = repo
 	}
 	return repos
 }
 
+// If N=0, get total number of fetched respoitories from DB. Use N otherwise.
+func allOrN(n uint64) uint64 {
+	const defaultN = 10
+	if n <= 0 {
+		k, err := core.ModelRepositoryStore().Count(model.NewRepositoryQuery().FindByStatus(model.Fetched))
+		if err != nil {
+			log.Error("Cann't connect to DB to get the number of 'fetched' repositories", "err", err)
+			k = defaultN
+		}
+		n = uint64(k)
+	}
+	return n
+}
 func checkIfError(err error) {
 	if err == nil {
 		return

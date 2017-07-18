@@ -8,8 +8,8 @@ type extractorServiceServer struct {
 	Service *Service
 }
 
-func NewExtractorServiceServer() *extractorServiceServer {
-	return &extractorServiceServer{NewService()}
+func NewExtractorServiceServer(limit uint64) *extractorServiceServer {
+	return &extractorServiceServer{NewService(limit)}
 }
 func (s *extractorServiceServer) Service_GetRepositoriesData(ctx context.Context, in *Service_GetRepositoriesDataRequest) (result *Service_GetRepositoriesDataResponse, err error) {
 	result = new(Service_GetRepositoriesDataResponse)
