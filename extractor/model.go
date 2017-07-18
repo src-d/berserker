@@ -2,10 +2,12 @@ package extractor
 
 // proteus:generate
 type Request struct {
-	RepositoryID   string
+	RepositoryIDs   RepositoryIDs
 	RootCommitHash []byte
 	Reference      string
 }
+
+type RepositoryIDs []string
 
 // proteus:generate
 type RepositoryData struct {

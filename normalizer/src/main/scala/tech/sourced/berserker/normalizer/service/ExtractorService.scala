@@ -1,6 +1,6 @@
 package tech.sourced.berserker.normalizer.service
 
-import github.com.srcd.berserker.extractor.generated.{ExtractorServiceGrpc, Service_GetRepositoriesDataRequest}
+import github.com.srcd.berserker.extractor.generated.{ExtractorServiceGrpc, Request}
 import io.grpc.ManagedChannelBuilder
 import org.apache.spark.sql.Row
 
@@ -15,8 +15,8 @@ class ExtractorService(host: String, port: Int, isPlainText: Boolean = true) {
 
   private val stub = ExtractorServiceGrpc.blockingStub(channel)
 
-  def getRepositoriesData: Seq[Row] = {
-    val reply = stub.serviceGetRepositoriesData(Service_GetRepositoriesDataRequest())
+  def getRepositoriesData(repoIds: Seq[String]): Seq[Row] = {
+    val reply = stub.serviceGetRepositoriesData(Request(repoIds))
 
     reply.result1.flatMap(rd => {
       for {

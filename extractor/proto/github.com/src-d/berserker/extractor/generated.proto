@@ -29,12 +29,9 @@ message RepositoryData {
 message Request {
 	option (gogoproto.goproto_getters) = false;
 	option (gogoproto.typedecl) = false;
-	string repository_id = 1 [(gogoproto.customname) = "RepositoryID"];
+	repeated string repository_ids = 1 [(gogoproto.customname) = "RepositoryIDs"];
 	bytes root_commit_hash = 2;
 	string reference = 3;
-}
-
-message Service_GetRepositoriesDataRequest {
 }
 
 message Service_GetRepositoriesDataResponse {
@@ -42,7 +39,7 @@ message Service_GetRepositoriesDataResponse {
 }
 
 service ExtractorService {
-	rpc Service_GetRepositoriesData (github.com.srcd.berserker.extractor.Service_GetRepositoriesDataRequest) returns (github.com.srcd.berserker.extractor.Service_GetRepositoriesDataResponse);
+	rpc Service_GetRepositoriesData (github.com.srcd.berserker.extractor.Request) returns (github.com.srcd.berserker.extractor.Service_GetRepositoriesDataResponse);
 	rpc Service_GetRepositoryData (github.com.srcd.berserker.extractor.Request) returns (github.com.srcd.berserker.extractor.RepositoryData);
 }
 

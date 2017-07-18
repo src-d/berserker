@@ -54,11 +54,11 @@ func (s *Service) GetRepositoryData(r *Request) (*RepositoryData, error) {
 }
 
 //proteus:generate
-func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
-	return s.getRerposData(s.limit)
+func (s *Service) GetRepositoriesData(r *Request) ([]*RepositoryData, error) {
+	return s.getRerposData(s.limit, r.RepositoryIDs)
 }
 
-func (s *Service) getRerposData(n uint64) ([]*RepositoryData, error) {
+func (s *Service) getRerposData(n uint64, repositoryIDs RepositoryIDs) ([]*RepositoryData, error) {
 	n = allOrN(n)
 	log.Info("Iterating over N repositories in DB", "N", n)
 
@@ -67,7 +67,7 @@ func (s *Service) getRerposData(n uint64) ([]*RepositoryData, error) {
 
 	reposNum := 0
 	totalFiles := 0
-	for masterRefInit, repoMetadata := range findAllFetchedReposWithRef(master, n) {
+	for masterRefInit, repoMetadata := range findAllFetchedReposWithRef(master, n, repositoryIDs) {
 		repo, processedFiles, err := s.processRepository(repoMetadata, master, masterRefInit)
 		if err != nil && repo == nil { // partially processed repos are OK
 			//TODO(bzz): move loggin/error handing here instead of s.processRepository()
@@ -234,7 +234,7 @@ func parseToUast(client protocol.ProtocolServiceClient, fName string, fLang stri
 }
 
 // Collects all Repository metadata in-memory
-func findAllFetchedReposWithRef(refText string, n uint64) map[model.SHA1]*model.Repository {
+func findAllFetchedReposWithRef(refText string, n uint64, repoIds []string) map[model.SHA1]*model.Repository {
 	repoStorage := core.ModelRepositoryStore()
 	q := model.NewRepositoryQuery().FindByStatus(model.Fetched).Limit(n)
 	rs, err := repoStorage.Find(q)

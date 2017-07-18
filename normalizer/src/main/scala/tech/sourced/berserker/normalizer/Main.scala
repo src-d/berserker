@@ -25,6 +25,7 @@ import scala.util.Properties
 object Main extends App {
   val conf = new SparkConf()
   val sparkMaster = Properties.envOrElse("MASTER", "local[*]")
+  val numberOfWorkers = 4
 
   val grpcHost = conf.get("tech.sourced.berserker.grpc.host", "localhost")
   val grpcPort = conf.getInt("tech.sourced.berserker.grpc.port", 8888)
@@ -41,11 +42,25 @@ object Main extends App {
   // Start gRPC connection
   val extractorService = ExtractorService(grpcHost, grpcPort, grpcPlainText)
 
-  val dataRDD = spark.sparkContext.parallelize(extractorService.getRepositoriesData)
+  val repoIds = queryMetadataDbForAllFetchRepos()
+  val dataRDD = spark.sparkContext
+    .parallelize(repoIds, numberOfWorkers)
+    .mapPartitions(partition => {
+      //TODO(bzz): start executor-server Golang binary
+      extractorService.getRepositoriesData(partition.toSeq).toIterator
+    })
+
   val dataDF = spark.sqlContext.createDataFrame(dataRDD, Schema.files)
 
   dataDF.write
     .mode(parquetMode)
     .parquet(parquetFilename)
   dataDF.show(10)
+
+
+  def queryMetadataDbForAllFetchRepos(): Seq[String] = {
+    //TODO(bzz): jdbc to query DB
+    return Seq("")
+  }
+
 }
