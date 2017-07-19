@@ -25,7 +25,7 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	extractorService := extractor.NewService(*limit)
+	extractorService := extractor.NewService(*limit, 100*1024*1024)
 	repos, err := extractorService.GetRepositoriesData(&extractor.Request{RepositoryIDs: []string{}})
 	checkIfError(err)
 	fmt.Printf("Repos returned: %d\n", len(repos))

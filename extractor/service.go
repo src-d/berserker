@@ -24,22 +24,21 @@ import (
 )
 
 const maxNumOfThousendsOfFilesToProcsee = 10
-const GrpcMaxMsgSize = 100 * 1024 * 1024
 
 type Service struct {
 	bblfshClient protocol.ProtocolServiceClient
 	limit        uint64
 }
 
-func NewService(n uint64) *Service {
+func NewService(n uint64, maxGrpcMsgSize int) *Service {
 	//TODO(bzz): parametrize
 	bblfshAddr := "0.0.0.0:9432"
 	log.Info("Connecting to Bblfsh server", "address", bblfshAddr)
 	bblfshConn, err := grpc.Dial(bblfshAddr,
 		grpc.WithTimeout(time.Second*2),
 		grpc.WithInsecure(),
-		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(GrpcMaxMsgSize)),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(GrpcMaxMsgSize)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(maxGrpcMsgSize)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxGrpcMsgSize)),
 	)
 	client := protocol.NewProtocolServiceClient(bblfshConn)
 	checkIfError(err)
