@@ -20,6 +20,7 @@ import (
 	"gopkg.in/src-d/go-git.v4/plumbing"
 	"gopkg.in/src-d/go-git.v4/plumbing/object"
 	"gopkg.in/src-d/go-git.v4/storage"
+	"gopkg.in/src-d/go-kallax.v1"
 )
 
 const maxNumOfThousendsOfFilesToProcsee = 10
@@ -80,7 +81,6 @@ func (s *Service) getRerposData(n uint64, repositoryIDs RepositoryIDs) ([]*Repos
 	}
 
 	log.Info("Done. All files in all repositories parsed", "repositories", reposNum, "files", totalFiles)
-
 	log.Debug("Serializing files in", "repositories", len(result))
 	for _, r := range result {
 		log.Debug("Repository", "ID", r.RepositoryID, "URL", r.URL, "number of files", len(r.Files))
@@ -95,7 +95,6 @@ func (s *Service) processRepository(repoMetadata *model.Repository, master strin
 	repo := &RepositoryData{
 		RepositoryID: repoID,
 		URL:          repoMetadata.Endpoints[0], //no endpoints?
-		Files:        make([]File, 100),
 	}
 
 	tx, err := core_retrieval.RootedTransactioner().Begin(plumbing.Hash(masterRefInit))
@@ -234,11 +233,16 @@ func parseToUast(client protocol.ProtocolServiceClient, fName string, fLang stri
 	return &data, nil
 }
 
-// Collects all Repository metadata in-memory
+// Fetched max N repository metadata in-memory for a given set of repository IDs
 func findAllFetchedReposWithRef(refText string, n uint64, repoIds []string) map[model.SHA1]*model.Repository {
-	repoStorage := core.ModelRepositoryStore()
-	q := model.NewRepositoryQuery().FindByStatus(model.Fetched).Limit(n)
-	rs, err := repoStorage.Find(q)
+	log.Debug("Fetching metadata for top N of the K give repositoryIDs from DB", "N", n, "K", len(repoIds))
+	q := model.NewRepositoryQuery().
+		FindByStatus(model.Fetched).
+		Limit(n)
+	if len(repoIds) > 0 {
+		q = q.FindByID(newULIDsFromText(repoIds)...)
+	}
+	rs, err := core.ModelRepositoryStore().Find(q)
 	if err != nil {
 		log.Error("Failed to query DB", "err", err)
 		return nil
@@ -268,7 +272,21 @@ func findAllFetchedReposWithRef(refText string, n uint64, repoIds []string) map[
 
 		repos[masterRef.Init] = repo
 	}
+	log.Debug("Repository metadata fetched for L repositories", "L", len(repos))
 	return repos
+}
+
+func newULIDsFromText(ids []string) []kallax.ULID {
+	var result []kallax.ULID
+	for _, id := range ids {
+		kallaxID, err := kallax.NewULIDFromText(id)
+		if err != nil {
+			log.Warn("Is not a valid kallax.ULID, skipping", "string", id)
+			continue
+		}
+		result = append(result, kallaxID)
+	}
+	return result
 }
 
 // If N=0, get total number of fetched respoitories from DB. Use N otherwise.

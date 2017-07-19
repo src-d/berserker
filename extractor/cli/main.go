@@ -26,7 +26,7 @@ func main() {
 	}
 
 	extractorService := extractor.NewService(*limit)
-	repos, err := extractorService.GetRepositoriesData()
+	repos, err := extractorService.GetRepositoriesData(&extractor.Request{RepositoryIDs: []string{}})
 	checkIfError(err)
 	fmt.Printf("Repos returned: %d\n", len(repos))
 
