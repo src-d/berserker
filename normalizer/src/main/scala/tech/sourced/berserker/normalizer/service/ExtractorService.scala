@@ -4,13 +4,12 @@ import github.com.srcd.berserker.extractor.generated.{ExtractorServiceGrpc, Requ
 import io.grpc.ManagedChannelBuilder
 import org.apache.spark.sql.Row
 
-class ExtractorService(host: String, port: Int, isPlainText: Boolean = true) {
+class ExtractorService(host: String, port: Int, maxMsgSize: Int, isPlainText: Boolean = true) {
 
-  private val maxGrpcMsgSize = 100 * 1042 * 1042
   private val channel = ManagedChannelBuilder
     .forAddress(host, port)
     .usePlaintext(isPlainText)
-    .maxInboundMessageSize(maxGrpcMsgSize)
+    .maxInboundMessageSize(maxMsgSize)
     .build()
 
   private val stub = ExtractorServiceGrpc.blockingStub(channel)
@@ -31,6 +30,6 @@ class ExtractorService(host: String, port: Int, isPlainText: Boolean = true) {
 }
 
 object ExtractorService {
-  def apply(host: String, port: Int, isPlainText: Boolean = true): ExtractorService =
-    new ExtractorService(host, port, isPlainText)
+  def apply(host: String, port: Int, maxMsgSize: Int, isPlainText: Boolean = true): ExtractorService =
+    new ExtractorService(host, port, maxMsgSize, isPlainText)
 }

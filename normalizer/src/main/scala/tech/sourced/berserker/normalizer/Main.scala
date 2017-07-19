@@ -26,11 +26,13 @@ import scala.util.Properties
 object Main extends App {
   val conf = new SparkConf()
   val sparkMaster = Properties.envOrElse("MASTER", "local[*]")
+  //TODO(bzz): make proper CLI args
   val numberOfWorkers = 4
 
   val grpcHost = conf.get("tech.sourced.berserker.grpc.host", "localhost")
   val grpcPort = conf.getInt("tech.sourced.berserker.grpc.port", 8888)
   val grpcPlainText = conf.getBoolean("tech.sourced.berserker.grpc.plaintext", defaultValue = true)
+  val grpcMaxMsgSize = conf.getInt("tech.sourced.berserker.grpc.max-size", defaultValue = 400 * 1042 * 1042)
   val parquetMode = conf.get("tech.sourced.berserker.parquet.files.mode", "overwrite")
   val parquetFilename = conf.get("tech.sourced.berserker.parquet.files.name", "files")
 
@@ -41,7 +43,8 @@ object Main extends App {
     .getOrCreate()
 
   // Start gRPC connection
-  val extractorService = ExtractorService(grpcHost, grpcPort, grpcPlainText)
+
+  val extractorService = ExtractorService(grpcHost, grpcPort, grpcMaxMsgSize, grpcPlainText)
 
   val dataRDD = queryMetadataDbForAllFetchRepos()
     .repartition(numberOfWorkers)
