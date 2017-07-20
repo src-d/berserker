@@ -46,7 +46,7 @@ object Main extends App {
 
   val extractorService = ExtractorService(grpcHost, grpcPort, grpcMaxMsgSize, grpcPlainText)
 
-  val dataRDD = queryMetadataDbForAllFetchRepos()
+  val dataRDD = getFetchedRepositoriesIds()
     .repartition(numberOfWorkers)
     .mapPartitions(partition => {
       //TODO(bzz): start executor-server Golang binary
@@ -61,7 +61,7 @@ object Main extends App {
   dataDF.show(10)
 
 
-  def queryMetadataDbForAllFetchRepos(n: Int = 0): RDD[String] = {
+  def getFetchedRepositoriesIds(limit: Int = 0): RDD[String] = {
     import spark.implicits._
     val jdbcDF = spark.read
       .format("jdbc")
@@ -72,7 +72,7 @@ object Main extends App {
       .load()
 
     val ids = if (n > 0) {
-      jdbcDF.select($"id").limit(n)
+      jdbcDF.select($"id").limit(limit)
     } else {
       jdbcDF.select($"id")
     }

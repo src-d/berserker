@@ -55,10 +55,10 @@ func (s *Service) GetRepositoryData(r *Request) (*RepositoryData, error) {
 
 //proteus:generate
 func (s *Service) GetRepositoriesData(r *Request) ([]*RepositoryData, error) {
-	return s.getRerposData(s.limit, r.RepositoryIDs)
+	return s.getReposData(s.limit, r.RepositoryIDs)
 }
 
-func (s *Service) getRerposData(n uint64, repositoryIDs RepositoryIDs) ([]*RepositoryData, error) {
+func (s *Service) getReposData(n uint64, repositoryIDs RepositoryIDs) ([]*RepositoryData, error) {
 	n = allOrN(n)
 	log.Info("Iterating over N repositories in DB", "N", n)
 
