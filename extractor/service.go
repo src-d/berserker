@@ -20,25 +20,25 @@ import (
 	"gopkg.in/src-d/go-git.v4/plumbing"
 	"gopkg.in/src-d/go-git.v4/plumbing/object"
 	"gopkg.in/src-d/go-git.v4/storage"
+	"gopkg.in/src-d/go-kallax.v1"
 )
 
 const maxNumOfThousendsOfFilesToProcsee = 10
-const GrpcMaxMsgSize = 100 * 1024 * 1024
 
 type Service struct {
 	bblfshClient protocol.ProtocolServiceClient
 	limit        uint64
 }
 
-func NewService(n uint64) *Service {
+func NewService(n uint64, maxGrpcMsgSize int) *Service {
 	//TODO(bzz): parametrize
 	bblfshAddr := "0.0.0.0:9432"
 	log.Info("Connecting to Bblfsh server", "address", bblfshAddr)
 	bblfshConn, err := grpc.Dial(bblfshAddr,
 		grpc.WithTimeout(time.Second*2),
 		grpc.WithInsecure(),
-		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(GrpcMaxMsgSize)),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(GrpcMaxMsgSize)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(maxGrpcMsgSize)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxGrpcMsgSize)),
 	)
 	client := protocol.NewProtocolServiceClient(bblfshConn)
 	checkIfError(err)
@@ -54,11 +54,11 @@ func (s *Service) GetRepositoryData(r *Request) (*RepositoryData, error) {
 }
 
 //proteus:generate
-func (s *Service) GetRepositoriesData() ([]*RepositoryData, error) {
-	return s.getRerposData(s.limit)
+func (s *Service) GetRepositoriesData(r *Request) ([]*RepositoryData, error) {
+	return s.getReposData(s.limit, r.RepositoryIDs)
 }
 
-func (s *Service) getRerposData(n uint64) ([]*RepositoryData, error) {
+func (s *Service) getReposData(n uint64, repositoryIDs RepositoryIDs) ([]*RepositoryData, error) {
 	n = allOrN(n)
 	log.Info("Iterating over N repositories in DB", "N", n)
 
@@ -67,7 +67,7 @@ func (s *Service) getRerposData(n uint64) ([]*RepositoryData, error) {
 
 	reposNum := 0
 	totalFiles := 0
-	for masterRefInit, repoMetadata := range findAllFetchedReposWithRef(master, n) {
+	for masterRefInit, repoMetadata := range findAllFetchedReposWithRef(master, n, repositoryIDs) {
 		repo, processedFiles, err := s.processRepository(repoMetadata, master, masterRefInit)
 		if err != nil && repo == nil { // partially processed repos are OK
 			//TODO(bzz): move loggin/error handing here instead of s.processRepository()
@@ -80,7 +80,6 @@ func (s *Service) getRerposData(n uint64) ([]*RepositoryData, error) {
 	}
 
 	log.Info("Done. All files in all repositories parsed", "repositories", reposNum, "files", totalFiles)
-
 	log.Debug("Serializing files in", "repositories", len(result))
 	for _, r := range result {
 		log.Debug("Repository", "ID", r.RepositoryID, "URL", r.URL, "number of files", len(r.Files))
@@ -95,7 +94,6 @@ func (s *Service) processRepository(repoMetadata *model.Repository, master strin
 	repo := &RepositoryData{
 		RepositoryID: repoID,
 		URL:          repoMetadata.Endpoints[0], //no endpoints?
-		Files:        make([]File, 100),
 	}
 
 	tx, err := core_retrieval.RootedTransactioner().Begin(plumbing.Hash(masterRefInit))
@@ -159,6 +157,7 @@ func (s *Service) processRepository(repoMetadata *model.Repository, master strin
 				Language: fLang,
 				Path:     f.Name,
 				UAST:     *uast,
+				Hash:     tree.Hash.String(),
 			}
 			repo.Files = append(repo.Files, file)
 		}
@@ -233,11 +232,16 @@ func parseToUast(client protocol.ProtocolServiceClient, fName string, fLang stri
 	return &data, nil
 }
 
-// Collects all Repository metadata in-memory
-func findAllFetchedReposWithRef(refText string, n uint64) map[model.SHA1]*model.Repository {
-	repoStorage := core.ModelRepositoryStore()
-	q := model.NewRepositoryQuery().FindByStatus(model.Fetched).Limit(n)
-	rs, err := repoStorage.Find(q)
+// Fetched max N repository metadata in-memory for a given set of repository IDs
+func findAllFetchedReposWithRef(refText string, n uint64, repoIds []string) map[model.SHA1]*model.Repository {
+	log.Debug("Fetching metadata for top N of the K give repositoryIDs from DB", "N", n, "K", len(repoIds))
+	q := model.NewRepositoryQuery().
+		FindByStatus(model.Fetched).
+		Limit(n)
+	if len(repoIds) > 0 {
+		q = q.FindByID(newULIDsFromText(repoIds)...)
+	}
+	rs, err := core.ModelRepositoryStore().Find(q)
 	if err != nil {
 		log.Error("Failed to query DB", "err", err)
 		return nil
@@ -267,7 +271,21 @@ func findAllFetchedReposWithRef(refText string, n uint64) map[model.SHA1]*model.
 
 		repos[masterRef.Init] = repo
 	}
+	log.Debug("Repository metadata fetched for L repositories", "L", len(repos))
 	return repos
+}
+
+func newULIDsFromText(ids []string) []kallax.ULID {
+	var result []kallax.ULID
+	for _, id := range ids {
+		kallaxID, err := kallax.NewULIDFromText(id)
+		if err != nil {
+			log.Warn("Is not a valid kallax.ULID, skipping", "string", id)
+			continue
+		}
+		result = append(result, kallaxID)
+	}
+	return result
 }
 
 // If N=0, get total number of fetched respoitories from DB. Use N otherwise.

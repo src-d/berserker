@@ -8,12 +8,12 @@ type extractorServiceServer struct {
 	Service *Service
 }
 
-func NewExtractorServiceServer(limit uint64) *extractorServiceServer {
-	return &extractorServiceServer{NewService(limit)}
+func NewExtractorServiceServer(limit uint64, maxGrpcMsgSize int) *extractorServiceServer {
+	return &extractorServiceServer{NewService(limit, maxGrpcMsgSize)}
 }
-func (s *extractorServiceServer) Service_GetRepositoriesData(ctx context.Context, in *Service_GetRepositoriesDataRequest) (result *Service_GetRepositoriesDataResponse, err error) {
+func (s *extractorServiceServer) Service_GetRepositoriesData(ctx context.Context, in *Request) (result *Service_GetRepositoriesDataResponse, err error) {
 	result = new(Service_GetRepositoriesDataResponse)
-	result.Result1, err = s.Service.GetRepositoriesData()
+	result.Result1, err = s.Service.GetRepositoriesData(in)
 	return
 }
 func (s *extractorServiceServer) Service_GetRepositoryData(ctx context.Context, in *Request) (result *RepositoryData, err error) {

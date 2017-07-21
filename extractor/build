@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Convenience script for building Extractor: CLI an a gRPC server
+
+echo "Building CLI"
+go build -o extractor ./cli/*.go
+
+echo "Building gRPC server"
+go build -o extractor-server ./server/*.go

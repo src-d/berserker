@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# Convenience script for building Normalizer
+
+echo "Building Normalizer"
+./sbt package

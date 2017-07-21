@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Convenience script for building all parts of Berserkers
+
+pushd extractor
+./build
+popd
+
+pushd normalizer
+./build
+popd
