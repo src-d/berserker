@@ -12,13 +12,16 @@ import org.eclipse.jgit.treewalk.TreeWalk
 
 
 object RootedRepo {
+  val thisStage = "Stage:JGitFileIteration"
 
-  def gitTree(sivaUnpacked: String) = {
-    val log = Logger.getLogger("Stage:JGitFileIteration")
+  def gitTree(dotGit: String) = {
+    val log = Logger.getLogger(thisStage)
+    log.info(s"Reading bare .git repository from $dotGit")
 
     val repository = new FileRepositoryBuilder()
       .readEnvironment()
-      .setGitDir(new File(sivaUnpacked))
+      .setGitDir(new File(dotGit))
+      .setMustExist(true)
       .setBare()
       .build()
 
@@ -27,19 +30,22 @@ object RootedRepo {
 
     val noneForkfOrigHeadRef = findNoneForkOrigRepoHeadRef(git.getRepository.getAllRefs())
 
-    val objectId = noneForkfOrigHeadRef.getObjectId //git.getRepository.resolve(noneForkfOrigHeadRef)
+    val objectId = noneForkfOrigHeadRef.getObjectId
     val revCommit = revWalk.parseCommit(objectId)
     revWalk.close()
 
     val treeWalk = new TreeWalk(git.getRepository)
     treeWalk.setRecursive(true)
     treeWalk.addTree(revCommit.getTree)
-    log.info(s"Walking a tree of $sivaUnpacked repository at ${noneForkfOrigHeadRef.getName}")
+    log.info(s"Walking a tree of $dotGit repository at ${noneForkfOrigHeadRef.getName}")
 
     treeWalk
   }
 
   def findNoneForkOrigRepoHeadRef(allRefs: util.Map[String, Ref]): Ref = {
+    val log = Logger.getLogger(thisStage)
+    log.info(s"${allRefs.size()} refs found. Picking a ref to head of original none-fork repo")
+
     // TODO(bzz): pick ref to non-fork orig repo HEAD
     //  right now we do not have orig HEAD refs in RootedRepos, AKA https://github.com/src-d/borges/issues/116
     //    so we always pick 'refs/heads/master' instead
@@ -49,7 +55,10 @@ object RootedRepo {
     //TODO(bzz):
     // sort allRefs
     // pick first one
-    return allRefs.get(allRefs.keySet().iterator().next())
+    val origNoneForkHead = allRefs.get(allRefs.keySet().iterator().next())
+
+    log.info(s"Done. ${origNoneForkHead} ref picked")
+    return origNoneForkHead
   }
 
 }

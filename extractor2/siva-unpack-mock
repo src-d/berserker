@@ -1,0 +1,7 @@
+#!/bin/bash
+
+
+while IFS=' ' read -ra ADDR; do
+  siva unpack "${ADDR[0]}" "${ADDR[1]}"
+  echo "${ADDR[1]}"
+done < /dev/stdin
