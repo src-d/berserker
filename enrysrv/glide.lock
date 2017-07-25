@@ -1,0 +1,73 @@
+hash: cc4c35f424f57f0db35c92a01ad92713b1b684731e2a38517b9ac25436f219d9
+updated: 2017-07-25T11:51:55.085965309+02:00
+imports:
+- name: github.com/gogo/protobuf
+  version: 100ba4e885062801d56799d78530b73b178a78f3
+  subpackages:
+  - gogoproto
+  - proto
+  - protoc-gen-gogo/descriptor
+- name: github.com/golang/protobuf
+  version: 0a4f71a498b7c4812f64969510bcb4eca251e33a
+  subpackages:
+  - proto
+  - ptypes/any
+- name: github.com/jessevdk/go-flags
+  version: 96dc06278ce32a0e9d957d590bb987c81ee66407
+- name: github.com/pkg/errors
+  version: c605e284fe17294bda444b34710735b29d1a9d90
+- name: github.com/sirupsen/logrus
+  version: a3f95b5c423586578a4e099b11a46c2479628cac
+- name: github.com/toqueteos/trie
+  version: 56fed4a05683322f125e2d78ee269bb102280392
+- name: golang.org/x/net
+  version: ab5485076ff3407ad2d02db054635913f017b0ed
+  subpackages:
+  - context
+  - http2
+  - http2/hpack
+  - idna
+  - internal/timeseries
+  - lex/httplex
+  - trace
+- name: golang.org/x/sys
+  version: c4489faa6e5ab84c0ef40d6ee878f7a030281f0f
+  subpackages:
+  - unix
+- name: golang.org/x/text
+  version: 836efe42bb4aa16aaa17b9c155d8813d336ed720
+  subpackages:
+  - secure/bidirule
+  - transform
+  - unicode/bidi
+  - unicode/norm
+- name: google.golang.org/genproto
+  version: b0a3dcfcd1a9bd48e63634bd8802960804cf8315
+  subpackages:
+  - googleapis/rpc/status
+- name: google.golang.org/grpc
+  version: 172ccacff3cfbddedcf1ba5ea06cda943bc976c1
+  subpackages:
+  - codes
+  - credentials
+  - grpclb/grpc_lb_v1
+  - grpclog
+  - internal
+  - keepalive
+  - metadata
+  - naming
+  - peer
+  - stats
+  - status
+  - tap
+  - transport
+- name: gopkg.in/src-d/enry.v1
+  version: dbc4115830cce722249ef8c1ccaa2d477808a02b
+  subpackages:
+  - data
+  - internal/tokenizer
+- name: gopkg.in/src-d/go-errors.v0
+  version: 6f07baca276330431b44ece8ee84ac98167bc4ea
+- name: gopkg.in/toqueteos/substring.v1
+  version: c5f61671513240ddf5563635cc4a90e9f3ae4710
+testImports: []

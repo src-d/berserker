@@ -1,21 +1,10 @@
-package main
+package enrysrv
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-
-	"gopkg.in/src-d/enry.v1"
-)
-
-const (
-	needContent = "NEED_CONTENT"
+	enry "gopkg.in/src-d/enry.v1"
 )
 
 var (
-	input  = os.Stdin
-	output = os.Stdout
-
 	strategiesByFilename = []enry.Strategy{
 		enry.GetLanguagesByExtension,
 		enry.GetLanguagesByFilename,
@@ -29,34 +18,7 @@ var (
 	}
 )
 
-func main() {
-	if len(os.Args) == 1 {
-		os.Exit(1)
-	}
-
-	filename := os.Args[1]
-	languages := GetLanguagesByFilenameStrategies(filename)
-	if len(languages) == 1 {
-		fmt.Fprint(output, languages[0])
-		return
-	}
-
-	fmt.Print(needContent)
-	content, err := ioutil.ReadAll(input)
-	if err != nil {
-		fmt.Fprint(output, err)
-		os.Exit(1)
-	}
-
-	languages = GetLanguagesByContentStrategies(filename, content, languages)
-	if len(languages) == 0 {
-		return
-	}
-
-	fmt.Fprint(output, languages[0])
-}
-
-func GetLanguagesByFilenameStrategies(filename string) (languages []string) {
+func getLanguagesByFilenameStrategies(filename string) (languages []string) {
 	if enry.IsVendor(filename) || enry.IsDotFile(filename) ||
 		enry.IsDocumentation(filename) || enry.IsConfiguration(filename) {
 		return
@@ -65,7 +27,7 @@ func GetLanguagesByFilenameStrategies(filename string) (languages []string) {
 	return runStrategies(strategiesByFilename, filename, nil, []string{})
 }
 
-func GetLanguagesByContentStrategies(filename string, content []byte, candidates []string) (languages []string) {
+func getLanguagesByContentStrategies(filename string, content []byte, candidates []string) (languages []string) {
 	if enry.IsBinary(content) {
 		return
 	}

@@ -1,0 +1,42 @@
+syntax = "proto3";
+package github.com.srcd.berserker.enrysrv;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+option (gogoproto.protosizer_all) = true;
+option (gogoproto.sizer_all) = false;
+option go_package = "enrysrv";
+
+// proteus:generate
+message EnryRequest {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	string file_name = 1;
+	bytes file_content = 2;
+}
+
+// proteus:generate
+message EnryResponse {
+	option (gogoproto.goproto_getters) = false;
+	option (gogoproto.typedecl) = false;
+	string language = 1;
+	github.com.srcd.berserker.enrysrv.Status status = 2;
+}
+
+// Status is the status of a response.
+enum Status {
+	option (gogoproto.enumdecl) = false;
+	option (gogoproto.goproto_enum_prefix) = false;
+	option (gogoproto.goproto_enum_stringer) = false;
+	// Ok status code. It is replied when a language is detected.
+	OK = 0 [(gogoproto.enumvalue_customname) = "Ok"];
+	// NeedContent status code. It is replied when the file content is needed to detect the language.
+	NEED_CONTENT = 1 [(gogoproto.enumvalue_customname) = "NeedContent"];
+	// Error status code. It is replied when the language couldn't be detected.
+	ERROR = 2 [(gogoproto.enumvalue_customname) = "Error"];
+}
+
+service EnrysrvService {
+	rpc GetLanguage (github.com.srcd.berserker.enrysrv.EnryRequest) returns (github.com.srcd.berserker.enrysrv.EnryResponse);
+}
+
