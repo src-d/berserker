@@ -1,14 +1,17 @@
 package tech.sourced.berserker
 
 
-//import org.apache.hadoop.fs.{FileSystem, Path}
-
-import org.apache.log4j.Logger
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, LocatedFileStatus, Path, RemoteIterator}
+import org.apache.log4j.{LogManager, Logger}
 import org.apache.spark.SparkConf
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.eclipse.jgit.lib.FileMode
 import org.eclipse.jgit.treewalk.TreeWalk
+import tech.sourced.berserker.spark.{SerializableConfiguration, Utils}
 
+import scala.collection.mutable
 import scala.util.Properties
 
 
@@ -26,9 +29,23 @@ object SparkDriver {
   // ./sbt assembly
   // java -jar target/scala-2.11/berserker-assembly-1.0.jar <path-to-new-unpack-dir>
 
+  def collectPaths(filesIterator: RemoteIterator[LocatedFileStatus]): Seq[String] = {
+    val result: mutable.ArrayBuffer[String] = mutable.ArrayBuffer()
+    while (filesIterator.hasNext) {
+      result.append(filesIterator.next().getPath().toString)
+    }
+    result
+  }
+
   def main(args: Array[String]): Unit = {
     val conf = new SparkConf()
     val sparkMaster = Properties.envOrElse("MASTER", "local[*]")
+    val numWorkers = 4
+
+    if (args.length < 1) {
+      println("Mandatory CLI argument is missing: path to dir with .siva files")
+      System.exit(1)
+    }
 
     val spark = SparkSession.builder()
       .config(conf)
@@ -36,41 +53,50 @@ object SparkDriver {
       .master(sparkMaster)
       .getOrCreate()
     val sc = spark.sparkContext
-
-    //TODO(bzz): iterate all *.siva files in HDFS
-    /*println(s"Reading all *.siva files in $sivaFilePaths")
-    val sivaFilePaths = new Path(args(0))
-    val sivaFiles = FileSystem.get(sc.hadoopConfiguration).listFiles(sivaFilePaths, false)
-    */
-
-    // path to *.siva files `file://` or `hdfs://`
-    val sivaUnpackedFiles = args(0)
-
     val driverLog = Logger.getLogger(getClass.getName)
-    driverLog.info(s"Processing all .siva files in $sivaUnpackedFiles")
 
-    //TODO(bzz): copy .siva files from HDFS, unpack using `go-siva`
+    val confBroadcast = sc.broadcast(new SerializableConfiguration(sc.hadoopConfiguration))
+
+    // list .siva files (on Driver)
+    val sivaFilePaths = new Path(args(0))
+    driverLog.info(s"Listing all *.siva files in $sivaFilePaths")
+    val sivaFilesIterator = FileSystem.get(sc.hadoopConfiguration).listFiles(sivaFilePaths, false)
+    val sivaFiles = collectPaths(sivaFilesIterator)
+    driverLog.info(s"Done, ${sivaFiles.length} .siva files found under $sivaFilePaths")
+
+    val actualNumWorkers = Math.min(numWorkers, sivaFiles.length)
+    driverLog.info(s"Processing ${sivaFiles.length} .siva files in $actualNumWorkers partitions")
+    val sivaFilesRDD: RDD[String] = sc.parallelize(sivaFiles, actualNumWorkers)
+
+    // copy from HDFS and un-pack in tmp dir using go-siva (on Workers)
+    val unpacked = sivaFilesRDD
+      .map(sivaFile => {
+        FsUtils.copyFromHDFS(confBroadcast.value.value, sivaFile)
+      })
+      .pipe("./siva-unpack-mock") //RDD["sivaUnpackDir"]
+
 
     // iterate every un-packed .siva
-    val intermediatePerFile = sc.parallelize(Seq(sivaUnpackedFiles), 1)
-      .map { sivaUnpacked =>
+    val intermediatePerFile = unpacked
+      .map { sivaUnpackedDir =>
         val log = Logger.getLogger("Stage: process single repo")
-        log.info(s"Processing repository in $sivaUnpacked")
+        log.info(s"Processing repository in $sivaUnpackedDir")
 
-        val treeWalk: TreeWalk = RootedRepo.gitTree(sivaUnpacked)
-        while (treeWalk.next()) { // iterate every file using JGit
-            val mode = treeWalk.getFileMode(0)
-            if(mode == FileMode.REGULAR_FILE || mode == FileMode.EXECUTABLE_FILE) {
-              val path = treeWalk.getPathString
-              println(s"$path")
-            }
+        // iterate every file using JGit
+        val treeWalk: TreeWalk = RootedRepo.gitTree(sivaUnpackedDir)
+        while (treeWalk.next()) {
+          val mode = treeWalk.getFileMode(0)
+          if (mode == FileMode.REGULAR_FILE || mode == FileMode.EXECUTABLE_FILE) {
+            val path = treeWalk.getPathString
+            println(s"$path")
+          }
         }
 
         //TODO(bzz): detect language using enry-server
         //TODO(bzz): parse to UAST using bblfsh/server
 
-        //TODO(bzz): cleanup .siva and unpacked files
-        log.info(s"Cleaning up .siva file/unpackSiva dir for $sivaUnpacked")
+        log.info(s"Cleaning up .siva and unpacked Siva from dir: $sivaUnpackedDir")
+        //TODO(bzz): cleanup sivaUnpackedDir (localSivaFile is in same dir)
         treeWalk.close()
       }
 
@@ -81,7 +107,32 @@ object SparkDriver {
     //TODO(bzz) de-duplicate/repartition final tables
 
     //TODO(bzz): print counters - performance accumulators, errors
+  }
 
+  object FsUtils {
+
+    def copyFromHDFS(hadoopConf: Configuration, remoteSivaFile: String): String = {
+      val localSivaDir = Utils.createTempDir(namePrefix = "siva").getCanonicalPath
+      val sivaFilename = copyFromHDFS(hadoopConf, remoteSivaFile, localSivaDir)
+
+      val localSivaFile = s"$localSivaDir/$sivaFilename"
+      println(s"\t$localSivaFile")
+      localSivaFile
+    }
+
+    def copyFromHDFS(hadoopConf: Configuration, sivaFile: String, toLocalPath: String) = {
+      val log = Logger.getLogger("Stage: copy .siva files")
+      log.info(s"Copying 1 file from: $sivaFile to: $toLocalPath")
+
+      val fs = FileSystem.get(hadoopConf)
+      val src = new Path(sivaFile)
+      val dst = new Path(toLocalPath)
+      fs.copyToLocalFile(src, dst)
+
+      val sivaFilename = sivaFile.split('/').last
+      log.info(s"$sivaFilename copied")
+      sivaFilename
+    }
   }
 
 }
