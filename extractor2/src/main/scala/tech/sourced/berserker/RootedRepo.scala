@@ -12,7 +12,7 @@ import org.eclipse.jgit.treewalk.TreeWalk
 
 
 object RootedRepo {
-  val thisStage = "Stage:JGitFileIteration"
+  val thisStage = "Stage: JGitFileIteration"
 
   def gitTree(dotGit: String) = {
     val log = Logger.getLogger(thisStage)
@@ -28,16 +28,16 @@ object RootedRepo {
     val git = new Git(repository)
     val revWalk = new RevWalk(git.getRepository)
 
-    val noneForkfOrigHeadRef = findNoneForkOrigRepoHeadRef(git.getRepository.getAllRefs())
+    val noneForkOrigHeadRef = findNoneForkOrigRepoHeadRef(git.getRepository.getAllRefs())
 
-    val objectId = noneForkfOrigHeadRef.getObjectId
+    val objectId = noneForkOrigHeadRef.getObjectId
     val revCommit = revWalk.parseCommit(objectId)
     revWalk.close()
 
     val treeWalk = new TreeWalk(git.getRepository)
     treeWalk.setRecursive(true)
     treeWalk.addTree(revCommit.getTree)
-    log.info(s"Walking a tree of $dotGit repository at ${noneForkfOrigHeadRef.getName}")
+    log.info(s"Walking a tree of $dotGit repository at ${noneForkOrigHeadRef.getName}")
 
     treeWalk
   }
