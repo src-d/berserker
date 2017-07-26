@@ -2,14 +2,13 @@ package tech.sourced.berserker
 
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, LocatedFileStatus, Path, RemoteIterator}
-import org.apache.log4j.{LogManager, Logger}
+import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.log4j.Logger
 import org.apache.spark.SparkConf
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.eclipse.jgit.lib.FileMode
 import org.eclipse.jgit.treewalk.TreeWalk
-import tech.sourced.berserker.spark.{SerializableConfiguration, Utils}
+import tech.sourced.berserker.spark.SerializableConfiguration
 
 import scala.collection.mutable
 import scala.util.Properties
@@ -22,20 +21,10 @@ object SparkDriver {
   //  kubectl cp borges-consumer-3831673438-h9zv7:/borges/root-repositories/ffb696c97d8c2fdf52bdaf9f637658d2df5e16fc.siva ffb696c97d8c2fdf52bdaf9f637658d2df5e16fc.siva
   // make sure go-siva is installed
   //  go get -u github.com/bzz/go-siva/...
-  // un-pack it to local FS
-  //  siva unpack - < ffb696c97d8c2fdf52bdaf9f637658d2df5e16fc.siva <path-to-new-unpack-dir>
 
   //run
   // ./sbt assembly
   // java -jar target/scala-2.11/berserker-assembly-1.0.jar <path-to-new-unpack-dir>
-
-  def collectPaths(filesIterator: RemoteIterator[LocatedFileStatus]): Seq[String] = {
-    val result: mutable.ArrayBuffer[String] = mutable.ArrayBuffer()
-    while (filesIterator.hasNext) {
-      result.append(filesIterator.next().getPath().toString)
-    }
-    result
-  }
 
   def main(args: Array[String]): Unit = {
     val conf = new SparkConf()
@@ -58,23 +47,19 @@ object SparkDriver {
     val confBroadcast = sc.broadcast(new SerializableConfiguration(sc.hadoopConfiguration))
 
     // list .siva files (on Driver)
-    val sivaFilePaths = new Path(args(0))
-    driverLog.info(s"Listing all *.siva files in $sivaFilePaths")
-    val sivaFilesIterator = FileSystem.get(sc.hadoopConfiguration).listFiles(sivaFilePaths, false)
-    val sivaFiles = collectPaths(sivaFilesIterator)
-    driverLog.info(s"Done, ${sivaFiles.length} .siva files found under $sivaFilePaths")
+    val sivaFilesPath = new Path(args(0))
+    val sivaFiles = collectSivaFilePaths(sc.hadoopConfiguration, driverLog, sivaFilesPath)
 
     val actualNumWorkers = Math.min(numWorkers, sivaFiles.length)
+    val remoteSivaFiles = sc.parallelize(sivaFiles, actualNumWorkers)
     driverLog.info(s"Processing ${sivaFiles.length} .siva files in $actualNumWorkers partitions")
-    val sivaFilesRDD: RDD[String] = sc.parallelize(sivaFiles, actualNumWorkers)
 
     // copy from HDFS and un-pack in tmp dir using go-siva (on Workers)
-    val unpacked = sivaFilesRDD
+    val unpacked = remoteSivaFiles
       .map(sivaFile => {
         FsUtils.copyFromHDFS(confBroadcast.value.value, sivaFile)
       })
       .pipe("./siva-unpack-mock") //RDD["sivaUnpackDir"]
-
 
     // iterate every un-packed .siva
     val intermediatePerFile = unpacked
@@ -96,7 +81,7 @@ object SparkDriver {
         //TODO(bzz): parse to UAST using bblfsh/server
 
         log.info(s"Cleaning up .siva and unpacked Siva from dir: $sivaUnpackedDir")
-        //TODO(bzz): cleanup sivaUnpackedDir (localSivaFile is in same dir)
+        FsUtils.rm(confBroadcast.value.value, sivaUnpackedDir)
         treeWalk.close()
       }
 
@@ -109,30 +94,16 @@ object SparkDriver {
     //TODO(bzz): print counters - performance accumulators, errors
   }
 
-  object FsUtils {
-
-    def copyFromHDFS(hadoopConf: Configuration, remoteSivaFile: String): String = {
-      val localSivaDir = Utils.createTempDir(namePrefix = "siva").getCanonicalPath
-      val sivaFilename = copyFromHDFS(hadoopConf, remoteSivaFile, localSivaDir)
-
-      val localSivaFile = s"$localSivaDir/$sivaFilename"
-      println(s"\t$localSivaFile")
-      localSivaFile
+  def collectSivaFilePaths(hadoopConfig: Configuration, log: Logger, sivaFilesPath: Path) = {
+    log.info(s"Listing all *.siva files in $sivaFilesPath")
+    val sivaFilesIterator = FileSystem.get(hadoopConfig).listFiles(sivaFilesPath, false)
+    val sivaFiles: mutable.ArrayBuffer[String] = mutable.ArrayBuffer()
+    while (sivaFilesIterator.hasNext) {
+      sivaFiles.append(sivaFilesIterator.next().getPath().toString)
     }
-
-    def copyFromHDFS(hadoopConf: Configuration, sivaFile: String, toLocalPath: String) = {
-      val log = Logger.getLogger("Stage: copy .siva files")
-      log.info(s"Copying 1 file from: $sivaFile to: $toLocalPath")
-
-      val fs = FileSystem.get(hadoopConf)
-      val src = new Path(sivaFile)
-      val dst = new Path(toLocalPath)
-      fs.copyToLocalFile(src, dst)
-
-      val sivaFilename = sivaFile.split('/').last
-      log.info(s"$sivaFilename copied")
-      sivaFilename
-    }
+    log.info(s"Done, ${sivaFiles.length} .siva files found under $sivaFilesPath")
+    sivaFiles
   }
+
 
 }
