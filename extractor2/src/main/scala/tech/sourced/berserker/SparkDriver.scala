@@ -12,6 +12,9 @@ import tech.sourced.berserker.spark.SerializableConfiguration
 
 import scala.collection.mutable
 import scala.util.Properties
+import github.com.srcd.berserker.enrysrv.generated.{EnryRequest, EnryResponse, EnrysrvServiceGrpc}
+import io.grpc.ManagedChannelBuilder
+import tech.sourced.berserker.service.EnryService
 
 
 object SparkDriver {
@@ -29,7 +32,11 @@ object SparkDriver {
   def main(args: Array[String]): Unit = {
     val conf = new SparkConf()
     val sparkMaster = Properties.envOrElse("MASTER", "local[*]")
+    //TODO(bzz): parametrize
     val numWorkers = 4
+    val grpcMaxMsgSize = 100 * 1024 * 1024
+    val enryHost = "0.0.0.0"
+    val enryPort = 9091
 
     if (args.length < 1) {
       println("Mandatory CLI argument is missing: path to dir with .siva files")
@@ -45,6 +52,8 @@ object SparkDriver {
     val driverLog = Logger.getLogger(getClass.getName)
 
     val confBroadcast = sc.broadcast(new SerializableConfiguration(sc.hadoopConfiguration))
+
+    //val bblshService = BblfshService(bblfshHost, bblfshPort, grpcMaxMsgSize)
 
     // list .siva files (on Driver)
     val sivaFilesPath = new Path(args(0))
@@ -63,27 +72,36 @@ object SparkDriver {
 
     // iterate every un-packed .siva
     val intermediatePerFile = unpacked
-      .map { sivaUnpackedDir =>
-        val log = Logger.getLogger("Stage: process single repo")
-        log.info(s"Processing repository in $sivaUnpackedDir")
+      .mapPartitions(partition => {
+        //TODO(bzz): start enrysrv process
+        val enryService = EnryService(enryHost, enryPort, grpcMaxMsgSize)
 
-        // iterate every file using JGit
-        val treeWalk: TreeWalk = RootedRepo.gitTree(sivaUnpackedDir)
-        while (treeWalk.next()) {
-          val mode = treeWalk.getFileMode(0)
-          if (mode == FileMode.REGULAR_FILE || mode == FileMode.EXECUTABLE_FILE) {
-            val path = treeWalk.getPathString
-            println(s"$path")
+        partition.map { sivaUnpackedDir =>
+          val log = Logger.getLogger("Stage: process single repo")
+          log.info(s"Processing repository in $sivaUnpackedDir")
+
+          // iterate every file using JGit
+          val treeWalk: TreeWalk = RootedRepo.gitTree(sivaUnpackedDir)
+          while (treeWalk.next()) {
+            val mode = treeWalk.getFileMode(0)
+            if (mode == FileMode.REGULAR_FILE || mode == FileMode.EXECUTABLE_FILE) {
+              val path = treeWalk.getPathString
+              //TODO(bzz): skip big well-known binaries like .apk and .jar
+
+              //detect language using enry server
+              val (lang, status) = enryService.getLanguage(path)
+              //TODO(bzz): parse to UAST using bblfsh/server
+              //bblfshService.parseUast()
+            }
           }
+
+
+          log.info(s"Cleaning up .siva and unpacked Siva from dir: $sivaUnpackedDir")
+          FsUtils.rm(confBroadcast.value.value, sivaUnpackedDir)
+          treeWalk.close()
         }
 
-        //TODO(bzz): detect language using enry-server
-        //TODO(bzz): parse to UAST using bblfsh/server
-
-        log.info(s"Cleaning up .siva and unpacked Siva from dir: $sivaUnpackedDir")
-        FsUtils.rm(confBroadcast.value.value, sivaUnpackedDir)
-        treeWalk.close()
-      }
+      })
 
     intermediatePerFile.collect().foreach(println)
 
@@ -104,6 +122,5 @@ object SparkDriver {
     log.info(s"Done, ${sivaFiles.length} .siva files found under $sivaFilesPath")
     sivaFiles
   }
-
 
 }
