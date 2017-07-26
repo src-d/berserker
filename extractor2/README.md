@@ -9,11 +9,11 @@ It uses gRPC to talk to enry-server and bblfsh/server for language detection and
    ```
    docker run --privileged -p 9432:9432 --name bblfsh bblfsh/server:dev-<sha> --max-message-size=100
    ```
- - enry-server built
+ - enrysrv binary built
 
 ## How to install
 
- - ScalaPB generates code from `../enry-server/*.proto` on every `./sbt compile`
+ - ScalaPB generates code from `../enrysrv2/*.proto` on every `./sbt compile`
  - `./sbt package` to build `spark-submit`'able .jar file
  - `./sbt assembly` to build fatJar for using `java -jar` (\w Scala and Apache Spark inside)
 
