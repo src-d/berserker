@@ -32,8 +32,10 @@ enum Status {
 	OK = 0 [(gogoproto.enumvalue_customname) = "Ok"];
 	// NeedContent status code. It is replied when the file content is needed to detect the language.
 	NEED_CONTENT = 1 [(gogoproto.enumvalue_customname) = "NeedContent"];
+	// Ignored status code. It is replied when a file is Vendor/DotFile/Documentation/Configuration
+	IGNORED = 2 [(gogoproto.enumvalue_customname) = "Ignored"];
 	// Error status code. It is replied when the language couldn't be detected.
-	ERROR = 2 [(gogoproto.enumvalue_customname) = "Error"];
+	ERROR = 3 [(gogoproto.enumvalue_customname) = "Error"];
 }
 
 service EnrysrvService {

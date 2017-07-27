@@ -1,5 +1,11 @@
 package enrysrv
 
+import (
+	"time"
+
+	"github.com/sirupsen/logrus"
+)
+
 //go:generate proteus -f proto -p github.com/src-d/berserker/enrysrv --verbose
 
 // proteus:generate
@@ -23,14 +29,36 @@ const (
 	Ok Status = iota
 	// NeedContent status code. It is replied when the file content is needed to detect the language.
 	NeedContent
+	// Ignored status code. It is replied when a file is Vendor/DotFile/Documentation/Configuration
+	Ignored
 	// Error status code. It is replied when the language couldn't be detected.
 	Error
 )
 
+var statusToString = map[Status]string{
+	Ok:          "OK",
+	NeedContent: "NEED CONTENT",
+	Ignored:     "IGNORED",
+	Error:       "ERROR",
+}
+
 //proteus:generate
 func GetLanguage(req *EnryRequest) (*EnryResponse, error) {
+	start := time.Now()
 	res := &EnryResponse{}
-	languages := getLanguagesByFilenameStrategies(req.FileName)
+	var languages []string
+	var strategyName string
+	defer func() {
+		elapsed := time.Since(start)
+		logRequest(req.FileName, res, strategyName, elapsed)
+	}()
+
+	if isIgnored(req.FileName) {
+		res.Status = Ignored
+		return res, nil
+	}
+
+	languages, strategyName = getLanguagesByFilenameStrategies(req.FileName)
 	if len(languages) == 1 {
 		res.Language = languages[0]
 		res.Status = Ok
@@ -42,7 +70,7 @@ func GetLanguage(req *EnryRequest) (*EnryResponse, error) {
 		return res, nil
 	}
 
-	languages = getLanguagesByContentStrategies(req.FileName, req.FileContent, languages)
+	languages, strategyName = getLanguagesByContentStrategies(req.FileName, req.FileContent, languages)
 	if len(languages) == 0 {
 		res.Status = Error
 		return res, nil
@@ -51,4 +79,9 @@ func GetLanguage(req *EnryRequest) (*EnryResponse, error) {
 	res.Language = languages[0]
 	res.Status = Ok
 	return res, nil
+}
+
+func logRequest(filename string, res *EnryResponse, strategyName string, elapsed time.Duration) {
+	const message = "Incoming request: %s %s --- filename: %q, language: %q, strategy: %s"
+	logrus.Infof(message, statusToString[res.Status], elapsed, filename, res.Language, strategyName)
 }

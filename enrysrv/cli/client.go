@@ -42,16 +42,21 @@ func (c *clientCmd) GetLanguage(filename string) error {
 		return err
 	}
 
+	logStatus(res)
+	return nil
+}
+
+func logStatus(res *enrysrv.EnryResponse) {
 	switch res.Status {
 	case enrysrv.Ok:
-		logrus.Debugf("detected language: %v", res.Language)
+		logrus.Infof("detected language: %v", res.Language)
 	case enrysrv.NeedContent:
-		logrus.Debug("need content file to detect language")
+		logrus.Warn("need content file to detect language")
+	case enrysrv.Ignored:
+		logrus.Warn("ingored case, file is Vendor/DotFile/Documentation/Configuration")
 	case enrysrv.Error:
-		logrus.Debug("couldn't detect language")
+		logrus.Error("couldn't detect language")
 	}
-
-	return nil
 }
 
 func (c *clientCmd) runClient(req *enrysrv.EnryRequest) (*enrysrv.EnryResponse, error) {
@@ -62,12 +67,12 @@ func (c *clientCmd) runClient(req *enrysrv.EnryRequest) (*enrysrv.EnryResponse, 
 
 	callOpts := []grpc.CallOption{}
 	if maxMessageSize != 0 {
-		logrus.Debugf("setting maximum size for sending and receiving messages to %d", maxMessageSize)
+		logrus.Infof("setting maximum size for sending and receiving messages to %d", maxMessageSize)
 		callOpts = append(callOpts, grpc.MaxCallRecvMsgSize(maxMessageSize))
 		callOpts = append(callOpts, grpc.MaxCallSendMsgSize(maxMessageSize))
 	}
 
-	logrus.Debugf("dialing server at %s", c.Address)
+	logrus.Infof("dialing server at %s", c.Address)
 	conn, err := grpc.Dial(c.Address, grpc.WithInsecure(), grpc.WithDefaultCallOptions(callOpts...))
 	if err != nil {
 		return nil, err
@@ -76,6 +81,6 @@ func (c *clientCmd) runClient(req *enrysrv.EnryRequest) (*enrysrv.EnryResponse, 
 	logrus.Debug("instantiating service client")
 	client := enrysrv.NewEnrysrvServiceClient(conn)
 
-	logrus.Debug("sending request")
+	logrus.Info("sending request")
 	return client.GetLanguage(context.TODO(), req)
 }

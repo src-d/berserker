@@ -7,4 +7,3 @@ LOCAL_LDFLAGS = -s -w -X main.version=$(LOCAL_TAG) -X main.build=$(LOCAL_BUILD) 
 build:
 	mkdir -p $(BIN_DIR); \
         go build -o $(BIN_DIR)/enrysrv -ldflags "$(LOCAL_LDFLAGS)" cli/*.go
-

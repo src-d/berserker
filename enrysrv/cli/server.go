@@ -35,12 +35,12 @@ func (c *serverCmd) startServer() error {
 
 	serverOpts := []grpc.ServerOption{}
 	if maxMessageSize != 0 {
-		logrus.Debugf("setting maximum size for sending and receiving messages to %d", maxMessageSize)
+		logrus.Infof("setting maximum size for sending and receiving messages to %d", maxMessageSize)
 		serverOpts = append(serverOpts, grpc.MaxRecvMsgSize(maxMessageSize))
 		serverOpts = append(serverOpts, grpc.MaxSendMsgSize(maxMessageSize))
 	}
 
-	logrus.Debugf("binding to %s", c.Address)
+	logrus.Infof("binding to %s", c.Address)
 	lis, err := net.Listen("tcp", c.Address)
 	if err != nil {
 		return err
@@ -50,7 +50,7 @@ func (c *serverCmd) startServer() error {
 	logrus.Debug("registering gRPC service")
 	enrysrv.RegisterEnrysrvServiceServer(grpcServer, enrysrv.NewEnrysrvServiceServer())
 
-	logrus.Debug("starting gRPC server")
+	logrus.Info("starting gRPC server")
 	return grpcServer.Serve(lis)
 }
 
