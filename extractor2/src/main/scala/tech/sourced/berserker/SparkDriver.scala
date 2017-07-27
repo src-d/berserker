@@ -7,14 +7,13 @@ import org.apache.log4j.Logger
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 import org.eclipse.jgit.lib.FileMode
-import org.eclipse.jgit.treewalk.TreeWalk
+
+import tech.sourced.berserker.service.EnryService
 import tech.sourced.berserker.spark.SerializableConfiguration
+import github.com.srcd.berserker.enrysrv.generated.Status
 
 import scala.collection.mutable
 import scala.util.Properties
-import github.com.srcd.berserker.enrysrv.generated.{EnryRequest, EnryResponse, EnrysrvServiceGrpc}
-import io.grpc.ManagedChannelBuilder
-import tech.sourced.berserker.service.EnryService
 
 
 object SparkDriver {
@@ -80,8 +79,8 @@ object SparkDriver {
           val log = Logger.getLogger("Stage: process single repo")
           log.info(s"Processing repository in $sivaUnpackedDir")
 
+          val treeWalk = RootedRepo.gitTree(sivaUnpackedDir)
           // iterate every file using JGit
-          val treeWalk: TreeWalk = RootedRepo.gitTree(sivaUnpackedDir)
           while (treeWalk.next()) {
             val mode = treeWalk.getFileMode(0)
             if (mode == FileMode.REGULAR_FILE || mode == FileMode.EXECUTABLE_FILE) {
@@ -89,9 +88,17 @@ object SparkDriver {
               //TODO(bzz): skip big well-known binaries like .apk and .jar
 
               //detect language using enry server
-              val (lang, status) = enryService.getLanguage(path)
+              var content = Array.emptyByteArray
+              var guess = enryService.getLanguage(path)
+              if (guess.status == Status.NEED_CONTENT) {
+                content = RootedRepo.readFile(treeWalk.getObjectId(0), treeWalk.getObjectReader)
+                guess = enryService.getLanguage(path, content)
+              }// else if (guess.status == Status.IS_IGNORED) {
+              //  continue
+              //}
+
               //TODO(bzz): parse to UAST using bblfsh/server
-              //bblfshService.parseUast()
+              //bblfshService.parseUast(path, content)
             }
           }
 
