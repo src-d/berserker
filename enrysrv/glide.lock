@@ -1,5 +1,5 @@
-hash: cc4c35f424f57f0db35c92a01ad92713b1b684731e2a38517b9ac25436f219d9
-updated: 2017-07-25T11:51:55.085965309+02:00
+hash: fdf30762f4fc6d9fa04b0dd4336e9979ac67035f3a48eb38449745e96026fdf4
+updated: 2017-07-27T11:23:57.747682972+02:00
 imports:
 - name: github.com/gogo/protobuf
   version: 100ba4e885062801d56799d78530b73b178a78f3
@@ -8,7 +8,7 @@ imports:
   - proto
   - protoc-gen-gogo/descriptor
 - name: github.com/golang/protobuf
-  version: 0a4f71a498b7c4812f64969510bcb4eca251e33a
+  version: 748d386b5c1ea99658fd69fe9f03991ce86a90c1
   subpackages:
   - proto
   - ptypes/any
@@ -21,7 +21,7 @@ imports:
 - name: github.com/toqueteos/trie
   version: 56fed4a05683322f125e2d78ee269bb102280392
 - name: golang.org/x/net
-  version: ab5485076ff3407ad2d02db054635913f017b0ed
+  version: f5079bd7f6f74e23c4d65efa0f4ce14cbd6a3c0f
   subpackages:
   - context
   - http2
@@ -31,7 +31,7 @@ imports:
   - lex/httplex
   - trace
 - name: golang.org/x/sys
-  version: c4489faa6e5ab84c0ef40d6ee878f7a030281f0f
+  version: 02a66801d979d706a4b445e24e03916eeaa2a404
   subpackages:
   - unix
 - name: golang.org/x/text
@@ -67,7 +67,7 @@ imports:
   - data
   - internal/tokenizer
 - name: gopkg.in/src-d/go-errors.v0
-  version: 6f07baca276330431b44ece8ee84ac98167bc4ea
+  version: 8bbbeeb767dfdd053b9b45d5a16a4f4ce2c6f694
 - name: gopkg.in/toqueteos/substring.v1
   version: c5f61671513240ddf5563635cc4a90e9f3ae4710
 testImports: []
