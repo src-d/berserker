@@ -2,6 +2,7 @@ package tech.sourced.berserker
 
 import org.scalatest.FunSuite
 import org.scalatest.BeforeAndAfter
+import tech.sourced.berserker.git.RootedRepo
 
 
 class RootedRepoTest extends FunSuite with BeforeAndAfter {

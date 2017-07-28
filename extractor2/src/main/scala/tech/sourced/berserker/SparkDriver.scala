@@ -1,18 +1,18 @@
 package tech.sourced.berserker
 
-
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
+import github.com.srcd.berserker.enrysrv.generated.Status
+import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Row, SparkSession}
+import org.bblfsh.client.BblfshClient
 import org.eclipse.jgit.lib.FileMode
-
+import org.eclipse.jgit.treewalk.TreeWalk
+import tech.sourced.berserker.git.{JGitFileIterator, RootedRepo}
+import tech.sourced.berserker.model.Schema
 import tech.sourced.berserker.service.EnryService
 import tech.sourced.berserker.spark.SerializableConfiguration
-import github.com.srcd.berserker.enrysrv.generated.Status
 
-import scala.collection.mutable
 import scala.util.Properties
 
 
@@ -36,6 +36,8 @@ object SparkDriver {
     val grpcMaxMsgSize = 100 * 1024 * 1024
     val enryHost = "0.0.0.0"
     val enryPort = 9091
+    val bblfshHost = "0.0.0.0"
+    val bblfshPort = 9432
 
     if (args.length < 1) {
       println("Mandatory CLI argument is missing: path to dir with .siva files")
@@ -51,12 +53,12 @@ object SparkDriver {
     val driverLog = Logger.getLogger(getClass.getName)
 
     val confBroadcast = sc.broadcast(new SerializableConfiguration(sc.hadoopConfiguration))
-
-    //val bblshService = BblfshService(bblfshHost, bblfshPort, grpcMaxMsgSize)
+    //TODO(bzz) extract enrysrv     binary from Jar and as.addFile() it
+    //TODO(bzz) extract siva-unpack binary from Jar and as.addFile() it
 
     // list .siva files (on Driver)
     val sivaFilesPath = new Path(args(0))
-    val sivaFiles = collectSivaFilePaths(sc.hadoopConfiguration, driverLog, sivaFilesPath)
+    val sivaFiles = FsUtils.collectSivaFilePaths(sc.hadoopConfiguration, driverLog, sivaFilesPath)
 
     val actualNumWorkers = Math.min(numWorkers, sivaFiles.length)
     val remoteSivaFiles = sc.parallelize(sivaFiles, actualNumWorkers)
@@ -67,67 +69,98 @@ object SparkDriver {
       .map(sivaFile => {
         FsUtils.copyFromHDFS(confBroadcast.value.value, sivaFile)
       })
-      .pipe("./siva-unpack-mock") //RDD["sivaUnpackDir"]
+      .pipe("./siva-unpack-mock") //RDD["sivaFile sivaUnpackDir"]
 
     // iterate every un-packed .siva
     val intermediatePerFile = unpacked
       .mapPartitions(partition => {
-        //TODO(bzz): start enrysrv process
+        //TODO(bzz): start enrysrv process using binary from SparkFiles
         val enryService = EnryService(enryHost, enryPort, grpcMaxMsgSize)
+        val bblfshService = BblfshClient(bblfshHost, bblfshPort, grpcMaxMsgSize)
 
-        partition.map { sivaUnpackedDir =>
-          val log = Logger.getLogger("Stage: process single repo")
-          log.info(s"Processing repository in $sivaUnpackedDir")
+        partition
+          .flatMap { sivaFileNameAndUnpackedDir =>
+            val log = Logger.getLogger(s"Stage: process single repo '$sivaFileNameAndUnpackedDir'")
+            val (sivaFileName, sivaUnpackDir) = split(sivaFileNameAndUnpackedDir)
 
-          val treeWalk = RootedRepo.gitTree(sivaUnpackedDir)
-          // iterate every file using JGit
-          while (treeWalk.next()) {
-            val mode = treeWalk.getFileMode(0)
-            if (mode == FileMode.REGULAR_FILE || mode == FileMode.EXECUTABLE_FILE) {
-              val path = treeWalk.getPathString
-              //TODO(bzz): skip big well-known binaries like .apk and .jar
+            log.info(s"Processing repository in $sivaUnpackDir")
+            //TODO(bzz): wrap repo processing logic in `try {} catch {}`
 
-              //detect language using enry server
-              var content = Array.emptyByteArray
-              var guess = enryService.getLanguage(path)
-              if (guess.status == Status.NEED_CONTENT) {
-                content = RootedRepo.readFile(treeWalk.getObjectId(0), treeWalk.getObjectReader)
-                guess = enryService.getLanguage(path, content)
-              }// else if (guess.status == Status.IS_IGNORED) {
-              //  continue
-              //}
-
-              //TODO(bzz): parse to UAST using bblfsh/server
-              //bblfshService.parseUast(path, content)
-            }
+            JGitFileIterator(sivaUnpackDir, sivaFileName, confBroadcast.value.value)
           }
+          .filter { case (_, treeWalk, _) =>
+            treeWalk.getFileMode(0) == FileMode.REGULAR_FILE || treeWalk.getFileMode(0) == FileMode.EXECUTABLE_FILE
+          }
+          .map { case (initHash, treeWalk, ref) =>
+            val path = treeWalk.getPathString
+            //TODO(bzz): skip big well-known binaries .apk and .jar
 
+            //detect language using enry server
+            var content = Array.emptyByteArray
+            var guessed = enryService.getLanguage(path)
+            if (guessed.status == Status.NEED_CONTENT) {
+              content = RootedRepo.readFile(treeWalk.getObjectId(0), treeWalk.getObjectReader)
+              guessed = enryService.getLanguage(path, content)
+            }
+            (initHash, treeWalk, ref, path, content, guessed)
+          }
+          .filter { case (_,_,_,_,_, guessed) =>
+            guessed.language.equalsIgnoreCase("python") || guessed.language.equalsIgnoreCase("java")
+          }
+          .flatMap { case (initHash, treeWalk, ref, path, cachedContent, guessed) =>
+            val log = Logger.getLogger(getClass.getName)
+            val content = readIfNotCached(treeWalk, cachedContent)
 
-          log.info(s"Cleaning up .siva and unpacked Siva from dir: $sivaUnpackedDir")
-          FsUtils.rm(confBroadcast.value.value, sivaUnpackedDir)
-          treeWalk.close()
-        }
+            val parsed = bblfshService.parse(path, content, guessed.language)
+            log.info(s"Parsed $path - size:${content.length} bytes, status:${parsed.status}")
 
+            val row = if (parsed.errors.isEmpty) {
+              Seq(Row(initHash,
+                ref.getObjectId.name,           //commit_hash
+                treeWalk.getObjectId(0).name,   //blob_hash
+                ref.getName.split('/').last,    //repository_id
+                "",                             //repository_url (?from unpackDir/config)
+                ref.getName.substring(0, ref.getName.lastIndexOf('/')), //reference
+                true,                           //is_main_repository
+                path, guessed.language,
+                parsed.uast.get.toByteArray))
+            } else {
+              log.info(s"Parsed $path - errors:${parsed.errors}")
+              Seq()
+            }
+            row
+          }
       })
+    //TODO(bzz): add accumulators: repos/files process/skipped (+ count for each error type)
 
-    intermediatePerFile.collect().foreach(println)
+    val intermediatePerFileDF = spark.sqlContext.createDataFrame(intermediatePerFile, Schema.all)
+    intermediatePerFileDF.write
+      .mode("overwrite")
+      .parquet("all.parquet")
+
+    val parquetAllDF = spark.read
+      .parquet("all.parquet")
+      .show(10)
 
     //TODO(bzz) produce tables: files, UAST and repositories from intermediatePerFile
-
     //TODO(bzz) de-duplicate/repartition final tables
-
     //TODO(bzz): print counters - performance accumulators, errors
   }
 
-  def collectSivaFilePaths(hadoopConfig: Configuration, log: Logger, sivaFilesPath: Path) = {
-    log.info(s"Listing all *.siva files in $sivaFilesPath")
-    val sivaFilesIterator = FileSystem.get(hadoopConfig).listFiles(sivaFilesPath, false)
-    val sivaFiles: mutable.ArrayBuffer[String] = mutable.ArrayBuffer()
-    while (sivaFilesIterator.hasNext) {
-      sivaFiles.append(sivaFilesIterator.next().getPath().toString)
-    }
-    log.info(s"Done, ${sivaFiles.length} .siva files found under $sivaFilesPath")
-    sivaFiles
+  def split(both: String): (String, String) = {
+    val fileNameAndUnpackedDir = both.split(' ')
+    val sivaFileName = fileNameAndUnpackedDir(0).split('/').last.split('.')(0)
+    val sivaUnpackedDir = fileNameAndUnpackedDir(1)
+    (sivaFileName, sivaUnpackedDir)
   }
+
+  def readIfNotCached(treeWalk: TreeWalk, cachedContent: Array[Byte]) = {
+    if (cachedContent.isEmpty) {
+      RootedRepo.readFile(treeWalk.getObjectId(0), treeWalk.getObjectReader)
+    } else {
+      cachedContent
+    }
+  }
+
 
 }
