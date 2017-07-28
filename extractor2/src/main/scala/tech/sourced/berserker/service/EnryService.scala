@@ -21,10 +21,10 @@ class EnryService(host: String, port: Int, maxMsgSize: Int) {
 
   def getLanguage(filename: String, content: Array[Byte] = Array.emptyByteArray) = {
     val req = if (content.isEmpty) {
-      log.info(s"Detecting lang for $filename")
+      log.debug(s"Detecting lang for $filename")
       EnryRequest(fileName = filename)
     } else {
-      log.info(s"Detecting lang for $filename by content")
+      log.debug(s"Detecting lang for $filename by content")
       EnryRequest(fileName = filename, fileContent = ByteString.copyFrom(content))
     }
     val guess = stub.getLanguage(req)

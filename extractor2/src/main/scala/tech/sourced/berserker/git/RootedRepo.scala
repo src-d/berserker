@@ -1,4 +1,4 @@
-package tech.sourced.berserker
+package tech.sourced.berserker.git
 
 import java.io.File
 
@@ -25,7 +25,7 @@ object RootedRepo {
 
   val thisStage = "Stage: JGitFileIteration"
 
-  def gitTree(dotGit: String) = {
+  def gitTree(dotGit: String): (TreeWalk, Ref) = {
     val log = Logger.getLogger(thisStage)
     log.info(s"Reading bare .git repository from $dotGit")
 
@@ -37,12 +37,10 @@ object RootedRepo {
       .build()
 
     val git = new Git(repository)
-    val revWalk = new RevWalk(git.getRepository)
-    val reader = git.getRepository.newObjectReader()
-
     val noneForkOrigHeadRef = getNoneForkOrigRepoHeadRef(git.getRepository.getAllRefs().asScala)
 
     val objectId = noneForkOrigHeadRef.getObjectId
+    val revWalk = new RevWalk(git.getRepository)
     val revCommit = revWalk.parseCommit(objectId)
     revWalk.close()
 
@@ -51,7 +49,7 @@ object RootedRepo {
     treeWalk.addTree(revCommit.getTree)
     log.info(s"Walking a tree of $dotGit repository at ${noneForkOrigHeadRef.getName}")
 
-    treeWalk
+    (treeWalk, noneForkOrigHeadRef)
   }
 
 
