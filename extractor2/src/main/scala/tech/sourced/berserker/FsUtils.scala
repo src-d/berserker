@@ -5,6 +5,8 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.log4j.Logger
 import tech.sourced.berserker.spark.Utils
 
+import scala.collection.mutable
+
 object FsUtils {
 
   val thisStage = "Stage: copy .siva files"
@@ -47,15 +49,14 @@ object FsUtils {
     * @return result, suitable for stdio input as for `./siva-unpack < result`
     */
   def copyFromHDFS(hadoopConf: Configuration, remoteSivaFile: String): String = {
-    val localSivaDir = Utils.createTempDir(namePrefix = FsUtils.sivaFilesNamePrefix).getCanonicalPath
-    val sivaFilename = copyFromHDFS(hadoopConf, remoteSivaFile, localSivaDir)
+    val localUnpackDir = Utils.createTempDir(namePrefix = FsUtils.sivaFilesNamePrefix).getCanonicalPath
+    val sivaFilename = copyFromHDFS(hadoopConf, remoteSivaFile, localUnpackDir)
 
-    val localSivaFile = s"$localSivaDir/$sivaFilename"
-    val unpackArgs = s"$localSivaFile $localSivaDir"
+    val unpackArgs = s"$localUnpackDir/$sivaFilename $localUnpackDir"
     unpackArgs
   }
 
-  def copyFromHDFS(hadoopConf: Configuration, sivaFile: String, toLocalPath: String) = {
+  def copyFromHDFS(hadoopConf: Configuration, sivaFile: String, toLocalPath: String): String = {
     val log = Logger.getLogger(FsUtils.thisStage)
     log.info(s"Copying 1 file from: $sivaFile to: $toLocalPath")
 
@@ -68,4 +69,16 @@ object FsUtils {
     log.info(s"$sivaFilename copied")
     sivaFilename
   }
+
+  def collectSivaFilePaths(hadoopConfig: Configuration, log: Logger, sivaFilesPath: Path) = {
+    log.info(s"Listing all *.siva files in $sivaFilesPath")
+    val sivaFilesIterator = FileSystem.get(hadoopConfig).listFiles(sivaFilesPath, false)
+    val sivaFiles: mutable.ArrayBuffer[String] = mutable.ArrayBuffer()
+    while (sivaFilesIterator.hasNext) {
+      sivaFiles.append(sivaFilesIterator.next().getPath().toString)
+    }
+    log.info(s"Done, ${sivaFiles.length} .siva files found under $sivaFilesPath")
+    sivaFiles
+  }
+
 }

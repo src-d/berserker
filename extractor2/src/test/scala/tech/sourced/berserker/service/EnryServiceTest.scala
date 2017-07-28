@@ -15,9 +15,9 @@ class EnryServiceTest extends FunSuite with BeforeAndAfterAll {
 
   override def beforeAll() = {
     testPort = 1024 + Random.nextInt( (65535 - 1024) + 1 )
-    var enrysrv = "./enrysrv"
-    if (!new File(enrysrv).exists()) {
-      enrysrv = "./extractor2/enrysrv"
+    var enrysrv = "../enrysrv2/bin/enrysrv"
+    if (!new File(enrysrv).exists()) { //unitTests
+      enrysrv = "./enrysrv2/bin/enrysrv"
     }
     enrySrvProc = s"$enrysrv server -a 0.0.0.0:$testPort".run
   }
