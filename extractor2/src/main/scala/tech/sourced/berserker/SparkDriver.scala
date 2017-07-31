@@ -155,11 +155,14 @@ object SparkDriver {
   }
 
   def readIfNotCached(treeWalk: TreeWalk, cachedContent: Array[Byte]) = {
-    if (cachedContent.isEmpty) {
+    val content = if (cachedContent.isEmpty) {
       RootedRepo.readFile(treeWalk.getObjectId(0), treeWalk.getObjectReader)
     } else {
       cachedContent
     }
+    //TODO(bzz): handle non-utf-8
+    val encodedContent = new String(content, "utf-8")
+    encodedContent
   }
 
 
