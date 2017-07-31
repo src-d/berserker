@@ -13,6 +13,12 @@ It uses gRPC to talk to enry-server and bblfsh/server for language detection and
    ```
    enrysrv server
    ```
+ - Scala client for Bblfsh server built (until published on sonatype.org)
+   ```
+   git clone https://github.com/bzz/client-scala
+   cd client-scala
+   ./sbt publish-local
+   ```
 
 ## How to install
 
