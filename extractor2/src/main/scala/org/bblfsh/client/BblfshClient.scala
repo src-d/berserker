@@ -14,10 +14,8 @@ class BblfshClient(host: String, port: Int, maxMsgSize: Int) {
 
   private val stub = ProtocolServiceGrpc.blockingStub(channel)
 
-  def parse(name: String, content: Array[Byte], lang: String = "", encoding: Encoding = Encoding.UTF8) = {
-    //TODO(bzz): assume content is already encoded?
-    val encodedContent = new String(content, "utf-8")
-    val req = ParseRequest(filename = name, content = encodedContent, language = lang.toLowerCase, encoding = encoding)
+  def parse(name: String, content: String, lang: String = "", encoding: Encoding = Encoding.UTF8) = {
+    val req = ParseRequest(filename = name, content = content, language = lang.toLowerCase, encoding = encoding)
     val parsed = stub.parse(req)
     parsed
   }

@@ -18,8 +18,6 @@ object RootedRepo {
   def readFile(objId: ObjectId, reader: ObjectReader): Array[Byte] = {
     val data = reader.open(objId).getBytes
     reader.close()
-    //TODO(bzz): handle none-utf8 data
-    //val content = new String(data, "utf-8")
     data
   }
 
