@@ -1,16 +1,16 @@
-# Berserker Extractor2
+# Berserker Extractor [![Build Status](https://travis-ci.org/src-d/berserker.svg?branch=master)](https://travis-ci.org/src-d/berserker)
 
 Berserker is an Apache Spark application using it's Scala API.
 It extracts UAST and other information about every file from the given set of .siva files and stores the result in Parquet format.
 
 
-## Arhitecture
+## Architecture
 
 It's part of repository data collection pipeline:
  - reads the output of [Borges](https://github.com/src-d/borges)
  - uses `go-siva` to unpack .siva files to headles RootedRepository in local FS
  - uses JGit to iterate over files at HEAD of the main original repository (skip forks)
- - detects langues using [Enry](https://github.com/src-d/enry/)
+ - detects languages using [Enry](https://github.com/src-d/enry/)
  - parses every file to UAST using [Bblfsh](https://github.com/bblfsh/server)
 
 It uses gRPC to talk to [Enry server](./enrysrv) and bblfsh/server for language detection and actual UAST parsing.

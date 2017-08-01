@@ -13,7 +13,7 @@ class CLI(arguments: Seq[String]) extends ScallopConf(arguments) {
       |Berserker extracts UAST from given .siva files
       |Options:
       |""".stripMargin)
-  footer("\nFor the details, consult https://github.com/src-d/berserker#arhitecture")
+  footer("\nFor the details, consult https://github.com/src-d/berserker#architecture")
 
   val input = opt[String](name = "input", noshort = true, descr = "Input path to read .siva files from",
     default = Some("/tmp/rooted-repos"))
