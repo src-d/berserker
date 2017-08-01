@@ -9,7 +9,7 @@ mainClass in Compile := Some("tech.sourced.berserker.SparkDriver")
 PB.targets in Compile := Seq(
   scalapb.gen() -> (sourceManaged in Compile).value
 )
-PB.protoSources in Compile := Seq(file("../enrysrv2/proto"))
+PB.protoSources in Compile := Seq(file("./enrysrv/proto"))
 
 // (optional) If you need scalapb/scalapb.proto or anything from google/protobuf/*.proto
 libraryDependencies += "com.trueaccord.scalapb" %% "scalapb-runtime" % com.trueaccord.scalapb.compiler.Version.scalapbVersion % "protobuf"

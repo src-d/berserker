@@ -1,11 +1,6 @@
 #!/bin/bash
 
-# Convenience script for building all parts of Berserkers
+# Convenience script for building Normalizer
 
-pushd extractor
-./build
-popd
-
-pushd normalizer
-./build
-popd
+echo "Building Normalizer"
+./sbt package
