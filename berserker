@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Convenience script to run Berserker using Apache Spark local mode
+
+fatjar="target/scala-2.11/berserker-assembly-0.0.2.jar"
+build_command="./sbt assembly"
+
+hash java >/dev/null 2>&1 || { echo "Please install Java" >&2; exit 1; }
+hash siva >/dev/null 2>&1 || { echo "Please go-siva https://github.com/src-d/go-siva#installation" >&2; exit 1; }
+
+if [[ ! -f "${fatjar}" ]]; then
+    echo "Running build ${build_command}"
+    $build_command
+fi
+
+java -jar "${fatjar}" $@
