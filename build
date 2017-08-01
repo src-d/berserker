@@ -4,17 +4,8 @@
 
 echo "Building dependency: Enry server"
 cd enrysrv
-
-hash glide >/dev/null 2>&1 || { echo "Please install Glide https://github.com/Masterminds/glide#install" >&2; exit 1; }
-glide install
-
-make build
-if [[ "$?" -ne 0 ]]; then
-  echo "To build Golang, please check that current dir=$PWD is under GOPATH=$GOPATH"
-  exit 1
-fi
+./build
 cd ..
-echo "Done"
 
 
 echo "Building Berserker"
