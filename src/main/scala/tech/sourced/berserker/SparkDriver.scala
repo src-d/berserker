@@ -18,31 +18,22 @@ import scala.util.Properties
 
 object SparkDriver {
 
-  //pre-requests (going to be automated in subsequent PRs)
-  // copy a .siva file(s) i.e from Staging cluster
-  //  kubectl cp borges-consumer-3831673438-h9zv7:/borges/root-repositories/ffb696c97d8c2fdf52bdaf9f637658d2df5e16fc.siva ffb696c97d8c2fdf52bdaf9f637658d2df5e16fc.siva
-  // make sure go-siva is installed
-  //  go get -u github.com/bzz/go-siva/...
-
-  //run
-  // ./sbt assembly
-  // java -jar target/scala-2.11/berserker-assembly-1.0.jar <path-to-new-unpack-dir>
-
   def main(args: Array[String]): Unit = {
     val conf = new SparkConf()
     val sparkMaster = Properties.envOrElse("MASTER", "local[*]")
-    //TODO(bzz): parametrize
-    val numWorkers = 4
-    val grpcMaxMsgSize = 100 * 1024 * 1024
-    val enryHost = "0.0.0.0"
-    val enryPort = 9091
-    val bblfshHost = "0.0.0.0"
-    val bblfshPort = 9432
 
+    val cli = new CLI(args)
     if (args.length < 1) {
-      println("Mandatory CLI argument is missing: path to dir with .siva files")
+      cli.printHelp()
       System.exit(1)
     }
+    cli.verify()
+    val grpcMaxMsgSize = cli.grpcMaxMsgSize() //working around https://github.com/scallop/scallop/issues/137
+    val enryHost = cli.enryHost()
+    val enryPort = cli.enryPort()
+    val bblfshHost = cli.bblfshHost()
+    val bblfshPort = cli.bblfshPort()
+    val sivaFilesPath = new Path(cli.input())
 
     val spark = SparkSession.builder()
       .config(conf)
@@ -57,10 +48,12 @@ object SparkDriver {
     //TODO(bzz) extract siva-unpack binary from Jar and as.addFile() it
 
     // list .siva files (on Driver)
-    val sivaFilesPath = new Path(args(0))
-    val sivaFiles = FsUtils.collectSivaFilePaths(sc.hadoopConfiguration, driverLog, sivaFilesPath)
+    var sivaFiles = FsUtils.collectSivaFilePaths(sc.hadoopConfiguration, driverLog, sivaFilesPath)
+    if (cli.sivaFileLimit() > 0) {
+      sivaFiles = sivaFiles.take(Math.max(cli.sivaFileLimit(), sivaFiles.length))
+    }
 
-    val actualNumWorkers = Math.min(numWorkers, sivaFiles.length)
+    val actualNumWorkers = Math.min(cli.numberPartitions(), sivaFiles.length)
     val remoteSivaFiles = sc.parallelize(sivaFiles, actualNumWorkers)
     driverLog.info(s"Processing ${sivaFiles.length} .siva files in $actualNumWorkers partitions")
 
@@ -136,10 +129,10 @@ object SparkDriver {
     val intermediatePerFileDF = spark.sqlContext.createDataFrame(intermediatePerFile, Schema.all)
     intermediatePerFileDF.write
       .mode("overwrite")
-      .parquet("all.parquet")
+      .parquet(cli.output())
 
     val parquetAllDF = spark.read
-      .parquet("all.parquet")
+      .parquet(cli.output())
       .show(10)
 
     //TODO(bzz) produce tables: files, UAST and repositories from intermediatePerFile

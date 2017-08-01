@@ -25,6 +25,8 @@ libraryDependencies ++= Seq(
 
   "org.bblfsh" %% "bblfsh-client" % "0.0.1",
   "org.eclipse.jgit" % "org.eclipse.jgit" % "4.8.0.201706111038-r",
+  "org.rogach" %% "scallop" % "3.0.3",
+
 
   "org.apache.spark" %% "spark-core" % "2.1.1",
   "org.apache.spark" %% "spark-sql" % "2.1.1"
