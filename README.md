@@ -23,6 +23,7 @@ It uses gRPC to talk to [Enry server](./enrysrv) and bblfsh/server for language 
    ```
  - enrysrv binary built and running on 9091
    ```
+   #make sure the Berserker clone is under $GOPATH
    cd enrysrv; ./build
    ./bin/enrysrv server
    ```
@@ -41,7 +42,7 @@ It uses gRPC to talk to [Enry server](./enrysrv) and bblfsh/server for language 
 ## Test
 There are 2 types of tests: UnitTests in Scala and end-to-en integration tests. To run both do
 
-``
+```
 ./test
 ```
 
