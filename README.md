@@ -51,13 +51,13 @@ There are 2 types of tests: UnitTests in Scala and end-to-en integration tests. 
 ### Local mode
 On local machine for to use Apache Spark in local mode
 ```
-./berserker
+./berserker --help
 ```
 
 ### Apache Spark cluster
 
 ```
-MASTER="spark-master-url" ./berserker-cluster
+MASTER="spark-master-url" ./berserker-cluster --help
 ```
 
 
