@@ -48,12 +48,13 @@ sparkSubmit() {
 }
 
 
-# may be --packges below can be replaced with marking spark as 'provided' in build.sbt?
+# may be --packages below can be replaced with marking only spark as 'provided' in build.sbt (but keeping it in fatJar)?
 sparkSubmit \
   --class tech.sourced.berserker.SparkDriver \
   --master "${MASTER:=yarn}" \
   --name "Berserker (UAST extractor)" \
   --files "$GOPATH/bin/siva,./siva-unpack-mock,./enrysrv/bin/enrysrv" \
-  --packages "org.eclipse.jgit:org.eclipse.jgit:4.8.0.201706111038-r,org.rogach:scallop_2.11:3.0.3" \
+  --repositories "https://jitpack.io" \
+  --packages "org.eclipse.jgit:org.eclipse.jgit:4.8.0.201706111038-r,org.rogach:scallop_2.11:3.0.3,io.grpc:grpc-netty:1.5.0,com.trueaccord.scalapb:scalapb-runtime-grpc_2.11:0.6.1,com.github.bzz:client-scala:390362d7dc" \
   "${PWD}/${jar}" \
   "$@"
