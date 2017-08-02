@@ -1,5 +1,7 @@
 package tech.sourced.berserker
 
+import java.net.URI
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.log4j.Logger
@@ -60,7 +62,7 @@ object FsUtils {
     val log = Logger.getLogger(FsUtils.thisStage)
     log.info(s"Copying 1 file from: $sivaFile to: $toLocalPath")
 
-    val fs = FileSystem.get(hadoopConf)
+    val fs = FileSystem.get(new URI(sivaFile), hadoopConf)
     val src = new Path(sivaFile)
     val dst = new Path(toLocalPath)
     fs.copyToLocalFile(src, dst)
@@ -72,7 +74,7 @@ object FsUtils {
 
   def collectSivaFilePaths(hadoopConfig: Configuration, log: Logger, sivaFilesPath: Path) = {
     log.info(s"Listing all *.siva files in $sivaFilesPath")
-    val sivaFilesIterator = FileSystem.get(hadoopConfig).listFiles(sivaFilesPath, false)
+    val sivaFilesIterator = FileSystem.get(new URI(sivaFilesPath.toString), hadoopConfig).listFiles(sivaFilesPath, false)
     val sivaFiles: mutable.ArrayBuffer[String] = mutable.ArrayBuffer()
     while (sivaFilesIterator.hasNext) {
       sivaFiles.append(sivaFilesIterator.next().getPath().toString)
