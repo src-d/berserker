@@ -28,8 +28,8 @@ libraryDependencies ++= Seq(
   "org.rogach" %% "scallop" % "3.0.3",
 
 
-  "org.apache.spark" %% "spark-core" % "2.1.1",
-  "org.apache.spark" %% "spark-sql" % "2.1.1"
+  "org.apache.spark" %% "spark-core" % "2.2.0",
+  "org.apache.spark" %% "spark-sql" % "2.2.0"
 )
 
 /* without explicit merge strategies you'll get a noise from sbt-assembly
