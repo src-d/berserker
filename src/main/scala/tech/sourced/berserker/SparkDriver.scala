@@ -54,7 +54,7 @@ object SparkDriver {
     // list .siva files (on Driver)
     var sivaFiles = FsUtils.collectSivaFilePaths(sc.hadoopConfiguration, driverLog, sivaFilesPath)
     if (cli.sivaFileLimit() > 0) {
-      sivaFiles = sivaFiles.take(Math.max(cli.sivaFileLimit(), sivaFiles.length))
+      sivaFiles = sivaFiles.take(Math.min(cli.sivaFileLimit(), sivaFiles.length))
     }
 
     val actualNumWorkers = Math.min(cli.numberPartitions(), sivaFiles.length)
