@@ -47,4 +47,6 @@ class CLI(arguments: Seq[String]) extends ScallopConf(arguments) {
   val bblfshPort = opt[Int](name = "bblfshPort", noshort = true, descr = "Port where Babelfish server is running",
     default = Some(9432))
 
+  //TODO(bzz): add deserialize() with SerializationProxy
+  //https://github.com/scallop/scallop/issues/137#issuecomment-319676687
 }

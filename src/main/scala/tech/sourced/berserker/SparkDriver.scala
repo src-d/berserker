@@ -1,9 +1,11 @@
 package tech.sourced.berserker
 
+import java.io.File
+
 import github.com.srcd.berserker.enrysrv.generated.Status
 import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkFiles}
 import org.apache.spark.sql.{Row, SparkSession}
 import org.bblfsh.client.BblfshClient
 import org.eclipse.jgit.lib.FileMode
@@ -29,11 +31,13 @@ object SparkDriver {
     }
     cli.verify()
     val grpcMaxMsgSize = cli.grpcMaxMsgSize() //working around https://github.com/scallop/scallop/issues/137
-    val enryHost = cli.enryHost()
+    val enryHost = Properties.envOrElse("ENRY_SERVER_SERVICE_HOST", cli.enryHost())
+    val bblfshHost = Properties.envOrElse("BBLFSH_SERVER_SERVICE_HOST", cli.bblfshHost())
     val enryPort = cli.enryPort()
-    val bblfshHost = cli.bblfshHost()
     val bblfshPort = cli.bblfshPort()
     val sivaFilesPath = new Path(cli.input())
+    val enrysrvLocal = "./enrysrv/bin/enrysrv"
+
 
     val spark = SparkSession.builder()
       .config(conf)
@@ -67,7 +71,14 @@ object SparkDriver {
     // iterate every un-packed .siva
     val intermediatePerFile = unpacked
       .mapPartitions(partition => {
-        //TODO(bzz): start enrysrv process using binary from SparkFiles
+        if (EnryService.processIsNotRunning()) {
+          val enrysrvBinary = if (new File(enrysrvLocal).exists()) {
+            enrysrvLocal
+          } else {
+            SparkFiles.get("enrysrv")
+          }
+          EnryService.startProcess(enrysrvBinary)
+        }
         val enryService = EnryService(enryHost, enryPort, grpcMaxMsgSize)
         val bblfshService = BblfshClient(bblfshHost, bblfshPort, grpcMaxMsgSize)
 

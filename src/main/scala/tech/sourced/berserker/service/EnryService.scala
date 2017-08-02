@@ -5,6 +5,7 @@ import github.com.srcd.berserker.enrysrv.generated.{EnryRequest, EnrysrvServiceG
 import io.grpc.ManagedChannelBuilder
 import org.apache.log4j.Logger
 
+import scala.sys.process._
 
 
 class EnryService(host: String, port: Int, maxMsgSize: Int) {
@@ -35,6 +36,28 @@ class EnryService(host: String, port: Int, maxMsgSize: Int) {
 }
 
 object EnryService {
+
+  def startProcess(enrysrv: String) = {
+    val log = Logger.getLogger(getClass.getName)
+    log.info(s"Starting Enry server process using $enrysrv")
+    val procsss = s"$enrysrv server".run
+  }
+
   def apply(host: String, port: Int, maxMsgSize: Int): EnryService =
     new EnryService(host, port, maxMsgSize)
+
+  def processIsNotRunning(): Boolean = {
+    var running = false
+    try {
+      ("ps aux" #| "grep [e]nrysrv" !!)
+      running = true
+    }
+    catch {
+      case _: Throwable => running = false
+    }
+    val log = Logger.getLogger(getClass.getName)
+    log.info("Enry process is not running")
+    !running
+  }
+
 }
