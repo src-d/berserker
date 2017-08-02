@@ -61,3 +61,20 @@ assemblyMergeStrategy in assembly := {
     val oldStrategy = (assemblyMergeStrategy in assembly).value
     oldStrategy(x)
 }
+
+lazy val root = (project in file("."))
+    .settings(
+      compile in Compile := {
+        buildEnrySrv.value
+        (compile in Compile).value
+      }
+    )
+
+lazy val buildEnrySrv = taskKey[Unit]("build enrysrv")
+
+buildEnrySrv := {
+  val res = "enrysrv/build" !;
+  if (res != 0) {
+    throw new IllegalStateException("error building enrysrv")
+  }
+}
