@@ -4,7 +4,9 @@
 
 echo "Building dependency: Enry server"
 cd enrysrv
-./build
+if ! ./build ; then
+    exit 2
+fi
 cd ..
 
 
