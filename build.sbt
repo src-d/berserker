@@ -23,7 +23,6 @@ libraryDependencies ++= Seq(
   "io.grpc" % "grpc-netty" % com.trueaccord.scalapb.compiler.Version.grpcJavaVersion,
   "com.trueaccord.scalapb" %% "scalapb-runtime-grpc" % com.trueaccord.scalapb.compiler.Version.scalapbVersion,
 
-  "org.bblfsh" %% "bblfsh-client" % "0.0.1",
   "org.eclipse.jgit" % "org.eclipse.jgit" % "4.8.0.201706111038-r",
   "org.rogach" %% "scallop" % "3.0.3",
 
@@ -31,6 +30,11 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % "2.1.1",
   "org.apache.spark" %% "spark-sql" % "2.1.1"
 )
+
+
+resolvers += "jitpack" at "https://jitpack.io"
+
+libraryDependencies += "com.github.bzz" % "client-scala" % "390362d7dc"
 
 /* without explicit merge strategies you'll get a noise from sbt-assembly
    complaining about not being able to dedup files */

@@ -22,7 +22,6 @@ install:
 
 before_script:
  - docker run -d -p 9432:9432 --name bblfsh bblfsh/server
- - ./local-install-bblfsh-client-scala.sh
 
 script:
  - cd enrysrv && ./build && cd - || travis_terminate 1

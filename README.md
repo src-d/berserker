@@ -27,11 +27,6 @@ It uses gRPC to talk to [Enry server](./enrysrv) and bblfsh/server for language 
    cd enrysrv; ./build
    ./bin/enrysrv server
    ```
- - Scala client for Bblfsh server built (until published on sonatype.org)
-   ```
-   git clone https://github.com/bzz/client-scala ; cd client-scala
-   ./sbt publish-local
-   ```
 
 ## Build
 
