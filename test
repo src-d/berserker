@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Convenience script for testing Berserker end-to-end
+
+
+# TODO: cp .siva fixture file to '/tmp/rooted-repositories'
+#./sbt assembly
+#./berserker
+
+# TODO: download pre-build -Plocal 'parquet-tools-1.9.0.jar'
+# TODO:make sure `jq` is installed
+# TODO:make sure `protoc` is installed
+
+#find './all.files/*.parquet' | head -1 | xargs -I{} java -jar 'parquet-tools-1.9.0.jar' cat -j {} \
+#  | jq -r .uast | base64 --decode \
+#  | protoc --decode_raw

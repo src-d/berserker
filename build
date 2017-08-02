@@ -1,11 +1,13 @@
 #!/bin/bash
 
-# Convenience script for building all parts of Berserkers
+# Convenience script for building Berserker
 
-pushd extractor
+echo "Building dependency: Enry server"
+cd enrysrv
 ./build
-popd
+cd ..
 
-pushd normalizer
-./build
-popd
+
+echo "Building Berserker"
+hash java >/dev/null 2>&1 || { echo "Please install JVM" >&2; exit 1; }
+./sbt package

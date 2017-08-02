@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Temporary shell wrapper around go-siva `siva unpack`
+# Reads 2 arguments from STDIN, uses them as CLI args to `siva unpack`
+# Will be replaced by a long-running single binary, to avoid siva process startup per file.
+
+while IFS=' ' read -ra ADDR; do
+  siva unpack "${ADDR[0]}" "${ADDR[1]}"
+  echo "${ADDR[0]} ${ADDR[1]}"
+done < /dev/stdin
