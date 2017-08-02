@@ -9,8 +9,8 @@ E_NO_SPARK=141
 siva="$GOPATH/bin/siva"
 siva_build_command="go get -u gopkg.in/src-d/go-siva.v1/..."
 
-jar="target/scala-2.11/berserker-assembly-0.0.2.jar"
-build_command="./sbt assembly"
+jar="target/scala-2.11/berserker_2.11-0.0.2.jar"
+build_command="./sbt package"
 
 enrysrv="./enrysrv/bin/enrysrv"
 enrysrv_build_command="cd enrysrv; ./build; cd -"
@@ -48,11 +48,16 @@ sparkSubmit() {
 }
 
 
-# may be --packages below can be replaced with marking only spark as 'provided' in build.sbt (but keeping it in fatJar)?
+# --exclude-packages works around https://bugs.eclipse.org/bugs/show_bug.cgi?id=514326
 sparkSubmit \
   --class tech.sourced.berserker.SparkDriver \
   --master "${MASTER:=yarn}" \
   --name "Berserker (UAST extractor)" \
   --files "$GOPATH/bin/siva,./siva-unpack-mock,./enrysrv/bin/enrysrv" \
+  --conf "spark.driver.userClassPathFirst=true" \
+  --conf "spark.executor.userClassPathFirst=true" \
+  --exclude-packages "org.slf4j:slf4j-api" \
+  --repositories "https://jitpack.io" \
+  --packages "org.eclipse.jgit:org.eclipse.jgit:4.8.0.201706111038-r,org.rogach:scallop_2.11:3.0.3,io.grpc:grpc-netty:1.4.0,com.trueaccord.scalapb:scalapb-runtime-grpc_2.11:0.6.0,com.github.bzz:client-scala:390362d7dc" \
   "${PWD}/${jar}" \
   "$@"
