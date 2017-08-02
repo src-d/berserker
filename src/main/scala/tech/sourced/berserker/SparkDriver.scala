@@ -48,8 +48,12 @@ object SparkDriver {
     val driverLog = Logger.getLogger(getClass.getName)
 
     val confBroadcast = sc.broadcast(new SerializableConfiguration(sc.hadoopConfiguration))
-    //TODO(bzz) extract enrysrv     binary from Jar and as.addFile() it
-    //TODO(bzz) extract siva-unpack binary from Jar and as.addFile() it
+    //TODO(bzz) extract enrysrv     binary from Jar and sc.addFile() it
+    //TODO(bzz) extract siva-unpack binary from Jar and sc.addFile() it
+    val sivaUnpack = "siva-unpack-mock"
+    if (! new File(SparkFiles.get(sivaUnpack)).exists()) {
+      sc.addFile(s"./$sivaUnpack")
+    }
 
     // list .siva files (on Driver)
     var sivaFiles = FsUtils.collectSivaFilePaths(sc.hadoopConfiguration, driverLog, sivaFilesPath)
@@ -66,7 +70,7 @@ object SparkDriver {
       .map(sivaFile => {
         FsUtils.copyFromHDFS(confBroadcast.value.value, sivaFile)
       })
-      .pipe("./siva-unpack-mock") //RDD["sivaFile sivaUnpackDir"]
+      .pipe(s"./$sivaUnpack") //RDD["sivaFile sivaUnpackDir"]
 
     // iterate every un-packed .siva
     val intermediatePerFile = unpacked
