@@ -2,7 +2,7 @@ package tech.sourced.berserker
 
 import java.io.File
 
-import github.com.srcd.berserker.enrysrv.generated.Status
+import github.com.srcd.berserker.enrysrv.generated.{EnryResponse, Status}
 import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
 import org.apache.spark.{SparkConf, SparkFiles}
@@ -79,7 +79,7 @@ object SparkDriver {
           val enrysrvBinary = if (new File(enrysrvLocal).exists()) {
             enrysrvLocal
           } else {
-            SparkFiles.get("enrysrv")
+            "./enrysrv" //SparkFiles.get("enrysrv")
           }
           EnryService.startProcess(enrysrvBinary)
         }
@@ -92,28 +92,32 @@ object SparkDriver {
             val (sivaFileName, sivaUnpackDir) = split(sivaFileNameAndUnpackedDir)
 
             log.info(s"Processing repository in $sivaUnpackDir")
-            //TODO(bzz): wrap repo processing logic in `try {} catch {}`
 
             JGitFileIterator(sivaUnpackDir, sivaFileName, confBroadcast.value.value)
           }
           .filter { case (_, treeWalk, _) =>
             treeWalk.getFileMode(0) == FileMode.REGULAR_FILE || treeWalk.getFileMode(0) == FileMode.EXECUTABLE_FILE
+            //TODO(bzz): skip big well-known binaries .apk and .jar
           }
           .map { case (initHash, treeWalk, ref) =>
+            val log = Logger.getLogger(s"Stage: detecting a language")
             val path = treeWalk.getPathString
-            //TODO(bzz): skip big well-known binaries .apk and .jar
 
-            //detect language using enry server
             var content = Array.emptyByteArray
-            var guessed = enryService.getLanguage(path)
-            if (guessed.status == Status.NEED_CONTENT) {
-              content = RootedRepo.readFile(treeWalk.getObjectId(0), treeWalk.getObjectReader)
-              guessed = enryService.getLanguage(path, content)
+            var guessed: EnryResponse = null
+            try { //detect language using enry server
+              guessed = enryService.getLanguage(path)
+              if (guessed.status == Status.NEED_CONTENT) {
+                content = RootedRepo.readFile(treeWalk.getObjectId(0), treeWalk.getObjectReader)
+                guessed = enryService.getLanguage(path, content)
+              }
+            }  catch {
+              case e: Throwable => log.info(s"Could not detect language for $path, $e")
             }
             (initHash, treeWalk, ref, path, content, guessed)
           }
           .filter { case (_,_,_,_,_, guessed) =>
-            guessed.language.equalsIgnoreCase("python") || guessed.language.equalsIgnoreCase("java")
+            guessed != null && (guessed.language.equalsIgnoreCase("python") || guessed.language.equalsIgnoreCase("java"))
           }
           .flatMap { case (initHash, treeWalk, ref, path, cachedContent, guessed) =>
             val log = Logger.getLogger(getClass.getName)

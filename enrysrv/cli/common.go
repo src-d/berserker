@@ -32,6 +32,7 @@ func (c *commonCmd) exec(args []string) error {
 		return err
 	}
 
+	logrus.SetOutput(os.Stdout)
 	logrus.SetLevel(level)
 	logrus.Info(versionMessage)
 	return nil
