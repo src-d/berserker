@@ -26,8 +26,8 @@ object SparkDriver {
 
     val cli = new CLI(args)
     if (args.length < 1) {
-      cli.printHelp()
-      System.exit(1)
+      cli.printHelp(  )
+      System.exit(0)
     }
     cli.verify()
     val grpcMaxMsgSize = cli.grpcMaxMsgSize() //working around https://github.com/scallop/scallop/issues/137
