@@ -13,4 +13,4 @@ if [[ ! -f "${fatjar}" ]]; then
     $build_command
 fi
 
-java -jar "${fatjar}" $@
+exec java -jar "${fatjar}" $@

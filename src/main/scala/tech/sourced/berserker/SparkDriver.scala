@@ -105,7 +105,7 @@ object SparkDriver {
 
             var content = Array.emptyByteArray
             var guessed: EnryResponse = null
-            try { //detect language using enry server
+            try { // detect language using enry server
               guessed = enryService.getLanguage(path)
               if (guessed.status == Status.NEED_CONTENT) {
                 content = RootedRepo.readFile(treeWalk.getObjectId(0), treeWalk.getObjectReader)

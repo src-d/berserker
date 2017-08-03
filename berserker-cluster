@@ -37,7 +37,7 @@ fi
 
 sparkSubmit() {
     if hash spark-submit 2>/dev/null; then
-        spark-submit "$@"
+        exec spark-submit "$@"
     elif [[ -n "${SPARK_HOME}" ]]; then
         echo "Using spark-submit from ${SPARK_HOME}"
         "${SPARK_HOME}/bin/spark-submit" "$@"

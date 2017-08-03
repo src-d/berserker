@@ -67,7 +67,7 @@ object EnryService {
       val out = ("ps aux" #| "grep [e]nrysrv" !!)
       log.info(s"Enry is running with $out")
       running = true
-    } catch {
+    } catch { //non-zero exit code
       case _: Throwable => running = false
     }
     log.info(s"Enry process is running? $running")
