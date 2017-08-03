@@ -5,6 +5,7 @@ import java.io.File
 import github.com.srcd.berserker.enrysrv.generated.{EnryResponse, Status}
 import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
+import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkFiles}
 import org.apache.spark.sql.{Row, SparkSession}
 import org.bblfsh.client.BblfshClient
@@ -36,7 +37,6 @@ object SparkDriver {
     val enryPort = cli.enryPort()
     val bblfshPort = cli.bblfshPort()
     val sivaFilesPath = new Path(cli.input())
-    val enrysrvLocal = "./enrysrv/bin/enrysrv"
 
 
     val spark = SparkSession.builder()
@@ -65,6 +65,12 @@ object SparkDriver {
     val remoteSivaFiles = sc.parallelize(sivaFiles, actualNumWorkers)
     driverLog.info(s"Processing ${sivaFiles.length} .siva files in $actualNumWorkers partitions")
 
+    // start Enry server
+    val workersNum = sc.getExecutorMemoryStatus.size-1
+    driverLog.info(s"Cluster have $workersNum workers")
+    val workers = sc.parallelize(0 until workersNum, workersNum)
+    startEnryServerOn(workers)
+
     // copy from HDFS and un-pack in tmp dir using go-siva (on Workers)
     val unpacked = remoteSivaFiles
       .map(sivaFile => {
@@ -75,14 +81,6 @@ object SparkDriver {
     // iterate every un-packed .siva
     val intermediatePerFile = unpacked
       .mapPartitions(partition => {
-        if (EnryService.processIsNotRunning()) {
-          val enrysrvBinary = if (new File(enrysrvLocal).exists()) {
-            enrysrvLocal
-          } else {
-            "./enrysrv" //sc.addFiles() or --files put it into PWD
-          }
-          EnryService.startProcess(enrysrvBinary)
-        }
         val enryService = EnryService(enryHost, enryPort, grpcMaxMsgSize)
         val bblfshService = BblfshClient(bblfshHost, bblfshPort, grpcMaxMsgSize)
 
@@ -143,10 +141,6 @@ object SparkDriver {
             row
           }
       })
-      .mapPartitions { partition =>
-        EnryService.stopProcess()
-        partition
-      }
     //TODO(bzz): add accumulators: repos/files process/skipped (+ count for each error type)
 
     val intermediatePerFileDF = spark.sqlContext.createDataFrame(intermediatePerFile, Schema.all)
@@ -158,10 +152,37 @@ object SparkDriver {
       .parquet(cli.output())
       .show(10)
 
+    stopEnryServerOn(workers)
+
     //TODO(bzz) produce tables: files, UAST and repositories from intermediatePerFile
     //TODO(bzz) de-duplicate/repartition final tables
     //TODO(bzz): print counters - performance accumulators, errors
   }
+
+  def startEnryServerOn(workers: RDD[Int]) =
+    workers
+      .mapPartitions { partition =>
+        val enrysrvLocal = "./enrysrv/bin/enrysrv"
+        if (EnryService.processIsNotRunning()) {
+          val enrysrvBinary = if (new File(enrysrvLocal).exists()) {
+            enrysrvLocal
+          } else {
+            "./enrysrv" //sc.addFiles() or --files put it to PWD
+          }
+          EnryService.startProcess(enrysrvBinary)
+        }
+        partition
+      }
+      .collect()
+
+
+  def stopEnryServerOn(workers: RDD[Int]) =
+    workers
+      .mapPartitions { partition =>
+        EnryService.stopProcess()
+        partition
+      }
+      .collect()
 
   def split(both: String): (String, String) = {
     val fileNameAndUnpackedDir = both.split(' ')
