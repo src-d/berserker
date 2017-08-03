@@ -1,0 +1,32 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: bblfsh-server-pod
+  labels:
+    name: bblfsh-server-pod
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        run: bblfsh-server-pod
+    spec:
+      containers:
+      - name: bblfsh
+        image: bblfsh/server:latest
+        ports:
+        - containerPort: 9432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bblfsh-server
+  labels:
+    run: bblfsh-server-pod
+spec:
+  ports:
+    - protocol: TCP
+      port: 9342
+      targetPort: 9432
+  selector:
+    run: bblfsh-server-pod
