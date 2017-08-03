@@ -79,7 +79,7 @@ object SparkDriver {
           val enrysrvBinary = if (new File(enrysrvLocal).exists()) {
             enrysrvLocal
           } else {
-            "./enrysrv" //SparkFiles.get("enrysrv")
+            "./enrysrv" //sc.addFiles() or --files put it into PWD
           }
           EnryService.startProcess(enrysrvBinary)
         }
@@ -143,6 +143,10 @@ object SparkDriver {
             row
           }
       })
+      .mapPartitions { partition =>
+        EnryService.stopProcess()
+        partition
+      }
     //TODO(bzz): add accumulators: repos/files process/skipped (+ count for each error type)
 
     val intermediatePerFileDF = spark.sqlContext.createDataFrame(intermediatePerFile, Schema.all)

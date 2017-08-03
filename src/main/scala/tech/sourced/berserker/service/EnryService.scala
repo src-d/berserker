@@ -35,7 +35,15 @@ class EnryService(host: String, port: Int, maxMsgSize: Int) {
 
 }
 
+/**
+  * Process lifecycle management below is kludgy.
+  * It all can be removed, if Enry server is treated the same way as Bblfsh server
+  * (I.e in cluster - managed by k8s)
+  */
 object EnryService {
+
+  private val psCommand = "ps ax" #| "grep [e]nrysrv"
+  private val killCommand = "kill -9"
 
   def startProcess(enrysrv: String) = {
     val log = Logger.getLogger(getClass.getName)
@@ -57,21 +65,42 @@ object EnryService {
     }.start()
   }
 
-  def apply(host: String, port: Int, maxMsgSize: Int): EnryService =
-    new EnryService(host, port, maxMsgSize)
+  def stopProcess() = {
+    val log = Logger.getLogger(getClass.getName)
+    log.info("Stop all Enry server processed")
+    val (running, psOut) = processIsRunning()
+    if (running) {
+      val pidOpt = "\\d+".r.findFirstIn(psOut)
+      pidOpt.foreach { pid =>
+        log.info(s"Killing enry server process $pid")
+        s"$killCommand $pid".run
+        log.info(s"Done. Enry server process $pid killed")
+      }
+    }
 
-  def processIsNotRunning(): Boolean = {
+  }
+
+  def processIsRunning(): (Boolean, String) = {
     val log = Logger.getLogger(getClass.getName)
     var running = false
+    var out = ""
     try {
-      val out = ("ps aux" #| "grep [e]nrysrv" !!)
+      out = (psCommand !!)
       log.info(s"Enry is running with $out")
       running = true
     } catch { //non-zero exit code
       case _: Throwable => running = false
     }
     log.info(s"Enry process is running? $running")
+    (running, out)
+  }
+
+  def processIsNotRunning(): Boolean = {
+    val (running, _) = processIsRunning()
     !running
   }
+
+  def apply(host: String, port: Int, maxMsgSize: Int): EnryService =
+    new EnryService(host, port, maxMsgSize)
 
 }
