@@ -5,16 +5,13 @@ language: scala
 services:
   - docker
 
-jdk:
-  - openjdk8
-
 scala:
-   - 2.11
+   - 2.11.11
 
 cache:
   directories:
-    - $HOME/.ivy2
     - $HOME/.sbt
+    - $HOME/.ivy2
 
 install:
  - go get -v github.com/Masterminds/glide
@@ -26,8 +23,8 @@ before_script:
  - ./local-install-bblfsh-client-scala.sh
 
 script:
- - pwd; find -L $GOPATH/src/github.com/src-d/
  - cd $GOPATH/src/github.com/src-d/berserker/enrysrv && ./build && cd - || travis_terminate 1
  - enrysrv/bin/enrysrv server&
+ - echo $TRAVIS_SCALA_VERSION
  - ./sbt ++$TRAVIS_SCALA_VERSION test || travis_terminate 1
  - ./test
