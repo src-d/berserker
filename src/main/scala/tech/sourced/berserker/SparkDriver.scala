@@ -2,6 +2,7 @@ package tech.sourced.berserker
 
 import java.io.File
 
+import github.com.bblfsh.sdk.protocol.generated.ParseResponse
 import github.com.srcd.berserker.enrysrv.generated.{EnryResponse, Status}
 import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
@@ -32,10 +33,10 @@ object SparkDriver {
     }
     cli.verify()
     val grpcMaxMsgSize = cli.grpcMaxMsgSize() //working around https://github.com/scallop/scallop/issues/137
-    val enryHost = Properties.envOrElse("ENRY_SERVER_SERVICE_HOST", cli.enryHost())
     val bblfshHost = Properties.envOrElse("BBLFSH_SERVER_SERVICE_HOST", cli.bblfshHost())
-    val enryPort = cli.enryPort()
     val bblfshPort = cli.bblfshPort()
+    val enryHost = Properties.envOrElse("ENRY_SERVER_SERVICE_HOST", cli.enryHost())
+    val enryPort = cli.enryPort()
     val sivaFilesPath = new Path(cli.input())
 
 
@@ -81,8 +82,12 @@ object SparkDriver {
     // iterate every un-packed .siva
     val intermediatePerFile = unpacked
       .mapPartitions(partition => {
+        val log = Logger.getLogger(s"Stage: single partition")
+
         val enryService = EnryService(enryHost, enryPort, grpcMaxMsgSize)
         val bblfshService = BblfshClient(bblfshHost, bblfshPort, grpcMaxMsgSize)
+        log.info(s"Connecting to Enry server: $enryHost:$enryPort")
+        log.info(s"Connecting to Bblfsh server: $bblfshHost:$bblfshPort")
 
         partition
           .flatMap { sivaFileNameAndUnpackedDir =>
@@ -121,8 +126,13 @@ object SparkDriver {
             val log = Logger.getLogger(getClass.getName)
             val content = readIfNotCached(treeWalk, cachedContent)
 
-            val parsed = bblfshService.parse(path, content, guessed.language)
-            log.info(s"Parsed $path - size:${content.length} bytes, status:${parsed.status}")
+            var parsed: ParseResponse = ParseResponse.defaultInstance
+            try { // detect language using enry server
+              parsed = bblfshService.parse(path, content, guessed.language)
+              log.info(s"Parsed $path - size:${content.length} bytes, status:${parsed.status}")
+            }  catch {
+              case e: Throwable => log.info(s"Could not parse UAST for $path, $e")
+            }
 
             val row = if (parsed.errors.isEmpty) {
               Seq(Row(initHash,
@@ -135,7 +145,7 @@ object SparkDriver {
                 path, guessed.language,
                 parsed.uast.get.toByteArray))
             } else {
-              log.info(s"Parsed $path - errors:${parsed.errors}")
+              log.info(s"Did not finish parsing $path - errors:${parsed.errors}")
               Seq()
             }
             row
