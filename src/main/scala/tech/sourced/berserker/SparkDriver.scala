@@ -3,10 +3,8 @@ package tech.sourced.berserker
 import java.io.File
 
 import github.com.bblfsh.sdk.protocol.generated.ParseResponse
-import github.com.srcd.berserker.enrysrv.generated.{EnryResponse, Status}
 import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
-import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkFiles}
 import org.apache.spark.sql.{Row, SparkSession}
 import org.bblfsh.client.BblfshClient
@@ -14,8 +12,8 @@ import org.eclipse.jgit.lib.FileMode
 import org.eclipse.jgit.treewalk.TreeWalk
 import tech.sourced.berserker.git.{JGitFileIterator, RootedRepo}
 import tech.sourced.berserker.model.Schema
-import tech.sourced.berserker.service.EnryService
 import tech.sourced.berserker.spark.SerializableConfiguration
+import tech.sourced.enry.Enry
 
 import scala.util.Properties
 
@@ -35,10 +33,7 @@ object SparkDriver {
     val grpcMaxMsgSize = cli.grpcMaxMsgSize() //working around https://github.com/scallop/scallop/issues/137
     val bblfshHost = Properties.envOrElse("BBLFSH_SERVER_SERVICE_HOST", cli.bblfshHost())
     val bblfshPort = cli.bblfshPort()
-    val enryHost = Properties.envOrElse("ENRY_SERVER_SERVICE_HOST", cli.enryHost())
-    val enryPort = cli.enryPort()
     val sivaFilesPath = new Path(cli.input())
-
 
     val spark = SparkSession.builder()
       .config(conf)
@@ -49,7 +44,6 @@ object SparkDriver {
     val driverLog = Logger.getLogger(getClass.getName)
 
     val confBroadcast = sc.broadcast(new SerializableConfiguration(sc.hadoopConfiguration))
-    //TODO(bzz) extract enrysrv     binary from Jar and sc.addFile() it
     //TODO(bzz) extract siva-unpack binary from Jar and sc.addFile() it
     val sivaUnpack = "siva-unpack-mock"
     if (! new File(SparkFiles.get(sivaUnpack)).exists()) {
@@ -69,8 +63,6 @@ object SparkDriver {
     // start Enry server
     val workersNum = sc.getExecutorMemoryStatus.size-1
     driverLog.info(s"Cluster have $workersNum workers")
-    val workers = sc.parallelize(0 until workersNum, workersNum)
-    startEnryServerOn(workers)
 
     // copy from HDFS and un-pack in tmp dir using go-siva (on Workers)
     val unpacked = remoteSivaFiles
@@ -84,9 +76,7 @@ object SparkDriver {
       .mapPartitions(partition => {
         val log = Logger.getLogger(s"Stage: single partition")
 
-        val enryService = EnryService(enryHost, enryPort, grpcMaxMsgSize)
         val bblfshService = BblfshClient(bblfshHost, bblfshPort, grpcMaxMsgSize)
-        log.info(s"Connecting to Enry server: $enryHost:$enryPort")
         log.info(s"Connecting to Bblfsh server: $bblfshHost:$bblfshPort")
 
         partition
@@ -107,15 +97,10 @@ object SparkDriver {
             val path = treeWalk.getPathString
 
             var content = Array.emptyByteArray
-            var guessed: EnryResponse = null
-            try { // detect language using enry server
-              guessed = enryService.getLanguage(path)
-              if (guessed.status == Status.NEED_CONTENT) {
+            var guessed = Enry.getLanguageByFilename(path)
+            if (!guessed.safe) {
                 content = RootedRepo.readFile(treeWalk.getObjectId(0), treeWalk.getObjectReader)
-                guessed = enryService.getLanguage(path, content)
-              }
-            }  catch {
-              case e: Throwable => log.info(s"Could not detect language for $path, $e")
+                guessed = Enry.getLanguageByContent(path, content)
             }
             (initHash, treeWalk, ref, path, content, guessed)
           }
@@ -162,37 +147,11 @@ object SparkDriver {
       .parquet(cli.output())
       .show(10)
 
-    stopEnryServerOn(workers)
-
     //TODO(bzz) produce tables: files, UAST and repositories from intermediatePerFile
     //TODO(bzz) de-duplicate/repartition final tables
     //TODO(bzz): print counters - performance accumulators, errors
   }
 
-  def startEnryServerOn(workers: RDD[Int]) =
-    workers
-      .mapPartitions { partition =>
-        val enrysrvLocal = "./enrysrv/bin/enrysrv"
-        if (EnryService.processIsNotRunning()) {
-          val enrysrvBinary = if (new File(enrysrvLocal).exists()) {
-            enrysrvLocal
-          } else {
-            "./enrysrv" //sc.addFiles() or --files put it to PWD
-          }
-          EnryService.startProcess(enrysrvBinary)
-        }
-        partition
-      }
-      .collect()
-
-
-  def stopEnryServerOn(workers: RDD[Int]) =
-    workers
-      .mapPartitions { partition =>
-        EnryService.stopProcess()
-        partition
-      }
-      .collect()
 
   def split(both: String): (String, String) = {
     val fileNameAndUnpackedDir = both.split(' ')

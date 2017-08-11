@@ -6,27 +6,15 @@ scalaVersion := "2.11.11"
 
 mainClass in Compile := Some("tech.sourced.berserker.SparkDriver")
 
-PB.targets in Compile := Seq(
-  scalapb.gen() -> (sourceManaged in Compile).value
-)
-PB.protoSources in Compile := Seq(file("./enrysrv/proto"))
-
-// (optional) If you need scalapb/scalapb.proto or anything from google/protobuf/*.proto
-libraryDependencies += "com.trueaccord.scalapb" %% "scalapb-runtime" % com.trueaccord.scalapb.compiler.Version.scalapbVersion % "protobuf"
-
-// Force to use this netty dependency due conflicts
-dependencyOverrides += "io.netty" % "netty-all" % "4.1.12.Final"
 
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
 
-  "io.grpc" % "grpc-netty" % com.trueaccord.scalapb.compiler.Version.grpcJavaVersion,
-  "com.trueaccord.scalapb" %% "scalapb-runtime-grpc" % com.trueaccord.scalapb.compiler.Version.scalapbVersion,
-
   "org.bblfsh" %% "bblfsh-client" % "0.0.1",
+  "tech.sourced" % "enry-java" % "1.0" classifier "assembly",
+
   "org.eclipse.jgit" % "org.eclipse.jgit" % "4.8.0.201706111038-r",
   "org.rogach" %% "scallop" % "3.0.3",
-
 
   "org.apache.spark" %% "spark-core" % "2.2.0",
   "org.apache.spark" %% "spark-sql" % "2.2.0"
