@@ -9,20 +9,11 @@ E_NO_SPARK=141
 jar="target/scala-2.11/berserker_2.11-0.0.2.jar"
 build_command="./sbt package"
 
-siva="$GOPATH/bin/siva"
-siva_build_command="go get -u gopkg.in/src-d/go-siva.v1/..."
-
 hash java >/dev/null 2>&1 || { echo "Please install Java" >&2; exit 1; }
 
 if [[ ! -f "${jar}" ]]; then
     echo "${jar} not found. Running build ${build_command}"
     $build_command
-fi
-
-if [[ ! -f "${siva}" ]]; then
-    echo "go-siva binary not found in ${siva}. Installing it using ${siva_build_command}"
-    hash go >/dev/null 2>&1 || { echo "Please install Golang" >&2; exit 1; }
-    $siva_build_command
 fi
 
 

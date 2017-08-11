@@ -13,7 +13,8 @@ import org.eclipse.jgit.treewalk.TreeWalk
 import tech.sourced.berserker.git.{JGitFileIterator, RootedRepo}
 import tech.sourced.berserker.model.Schema
 import tech.sourced.berserker.spark.SerializableConfiguration
-import tech.sourced.enry.Enry
+import tech.sourced.enry.{Enry, Guess}
+import tech.sourced.siva.SivaUnpacker
 
 import scala.util.Properties
 
@@ -44,11 +45,6 @@ object SparkDriver {
     val driverLog = Logger.getLogger(getClass.getName)
 
     val confBroadcast = sc.broadcast(new SerializableConfiguration(sc.hadoopConfiguration))
-    //TODO(bzz) extract siva-unpack binary from Jar and sc.addFile() it
-    val sivaUnpack = "siva-unpack-mock"
-    if (! new File(SparkFiles.get(sivaUnpack)).exists()) {
-      sc.addFile(s"./$sivaUnpack")
-    }
 
     // list .siva files (on Driver)
     var sivaFiles = FsUtils.collectSivaFilePaths(sc.hadoopConfiguration, driverLog, sivaFilesPath)
@@ -60,32 +56,33 @@ object SparkDriver {
     val remoteSivaFiles = sc.parallelize(sivaFiles, actualNumWorkers)
     driverLog.info(s"Processing ${sivaFiles.length} .siva files in $actualNumWorkers partitions")
 
-    // start Enry server
     val workersNum = sc.getExecutorMemoryStatus.size-1
     driverLog.info(s"Cluster have $workersNum workers")
 
     // copy from HDFS and un-pack in tmp dir using go-siva (on Workers)
     val unpacked = remoteSivaFiles
-      .map(sivaFile => {
+      .map { sivaFile =>
         FsUtils.copyFromHDFS(confBroadcast.value.value, sivaFile)
-      })
-      .pipe(s"./$sivaUnpack") //RDD["sivaFile sivaUnpackDir"]
+      }
+      .map { case (sivaFile, unpackDir) =>
+        val log = Logger.getLogger(s"Stage: unpack siva file")
+        val siva = new File(s"$unpackDir/$sivaFile")
+        log.info(s"${siva.getAbsolutePath} exists: ${siva.exists} canRead:{${siva.canRead}}")
+        new SivaUnpacker(siva.getAbsolutePath).unpack(unpackDir)
+        (sivaFile.substring(0, sivaFile.lastIndexOf('.')), unpackDir)
+      } //RDD["sivaFileName sivaUnpackDir"]
 
     // iterate every un-packed .siva
     val intermediatePerFile = unpacked
       .mapPartitions(partition => {
         val log = Logger.getLogger(s"Stage: single partition")
-
         val bblfshService = BblfshClient(bblfshHost, bblfshPort, grpcMaxMsgSize)
         log.info(s"Connecting to Bblfsh server: $bblfshHost:$bblfshPort")
 
         partition
-          .flatMap { sivaFileNameAndUnpackedDir =>
-            val log = Logger.getLogger(s"Stage: process single repo '$sivaFileNameAndUnpackedDir'")
-            val (sivaFileName, sivaUnpackDir) = split(sivaFileNameAndUnpackedDir)
-
+          .flatMap { case (sivaFileName, sivaUnpackDir) =>
+            val log = Logger.getLogger(s"Stage: process single")
             log.info(s"Processing repository in $sivaUnpackDir")
-
             JGitFileIterator(sivaUnpackDir, sivaFileName, confBroadcast.value.value)
           }
           .filter { case (_, treeWalk, _) =>
@@ -99,8 +96,13 @@ object SparkDriver {
             var content = Array.emptyByteArray
             var guessed = Enry.getLanguageByFilename(path)
             if (!guessed.safe) {
-                content = RootedRepo.readFile(treeWalk.getObjectId(0), treeWalk.getObjectReader)
-                guessed = Enry.getLanguageByContent(path, content)
+              content = RootedRepo.readFile(treeWalk.getObjectId(0), treeWalk.getObjectReader)
+              log.info(s"Detecting lang for: $path using content size:${content.length}")
+              guessed = if (content.isEmpty) {
+                new Guess("UNK", false) //Enry.unknownLanguage
+              } else {
+                Enry.getLanguageByContent(path, content)
+              }
             }
             (initHash, treeWalk, ref, path, content, guessed)
           }

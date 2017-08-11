@@ -12,6 +12,7 @@ libraryDependencies ++= Seq(
 
   "org.bblfsh" %% "bblfsh-client" % "0.0.1",
   "tech.sourced" % "enry-java" % "1.0" classifier "assembly",
+  "tech.sourced" %% "siva-java" % "0.1.0-SNAPSHOT",
 
   "org.eclipse.jgit" % "org.eclipse.jgit" % "4.8.0.201706111038-r",
   "org.rogach" %% "scallop" % "3.0.3",

@@ -50,12 +50,12 @@ object FsUtils {
     * @param remoteSivaFile path to single .siva file
     * @return result, suitable for stdio input as for `./siva-unpack < result`
     */
-  def copyFromHDFS(hadoopConf: Configuration, remoteSivaFile: String): String = {
+  def copyFromHDFS(hadoopConf: Configuration, remoteSivaFile: String): (String, String)= {
     val localUnpackDir = Utils.createTempDir(namePrefix = FsUtils.sivaFilesNamePrefix).getCanonicalPath
     val sivaFilename = copyFromHDFS(hadoopConf, remoteSivaFile, localUnpackDir)
 
-    val unpackArgs = s"$localUnpackDir/$sivaFilename $localUnpackDir"
-    unpackArgs
+    //s"$localUnpackDir/$sivaFilename $localUnpackDir"
+    (sivaFilename, localUnpackDir)
   }
 
   def copyFromHDFS(hadoopConf: Configuration, sivaFile: String, toLocalPath: String): String = {
