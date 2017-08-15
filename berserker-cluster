@@ -32,10 +32,11 @@ sparkSubmit() {
 
 
 # --exclude-packages works around https://bugs.eclipse.org/bugs/show_bug.cgi?id=514326
+#  --class tech.sourced.berserker.SparkDriver \s
 sparkSubmit \
-  --class tech.sourced.berserker.SparkDriver \
+  --class tech.sourced.berserker.ExtractReposLangs \
   --master "${MASTER:=yarn}" \
-  --name "Berserker (UAST extractor)" \
+  --name "Language extractor" \
   --conf "spark.driver.userClassPathFirst=true" \
   --conf "spark.executor.userClassPathFirst=true" \
   --exclude-packages "org.slf4j:slf4j-api" \

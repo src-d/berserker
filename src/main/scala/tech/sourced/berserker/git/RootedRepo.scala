@@ -4,7 +4,7 @@ import java.io.File
 
 import org.apache.log4j.Logger
 import org.eclipse.jgit.api.Git
-import org.eclipse.jgit.lib.{ObjectId, ObjectReader, Ref}
+import org.eclipse.jgit.lib.{Config, ObjectId, ObjectReader, Ref}
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder
 import org.eclipse.jgit.treewalk.TreeWalk
@@ -16,14 +16,16 @@ import scala.collection.mutable
 object RootedRepo {
 
   def readFile(objId: ObjectId, reader: ObjectReader): Array[Byte] = {
-    val data = reader.open(objId).getBytes
+    //TODO(bzz): if obj.isLarge() { obj.openStream() and read first N bytes }
+    val obj = reader.open(objId)
+    val data = obj.getBytes
     reader.close()
     data
   }
 
   val thisStage = "Stage: JGitFileIteration"
 
-  def gitTree(dotGit: String): (TreeWalk, Ref) = {
+  def gitTree(dotGit: String): (TreeWalk, Ref, Config) = {
     val log = Logger.getLogger(thisStage)
     log.info(s"Reading bare .git repository from $dotGit")
 
@@ -47,7 +49,7 @@ object RootedRepo {
     treeWalk.addTree(revCommit.getTree)
     log.info(s"Walking a tree of $dotGit repository at ${noneForkOrigHeadRef.getName}")
 
-    (treeWalk, noneForkOrigHeadRef)
+    (treeWalk, noneForkOrigHeadRef, git.getRepository.getConfig)
   }
 
 

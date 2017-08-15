@@ -4,7 +4,7 @@ version := "0.0.2"
 
 scalaVersion := "2.11.11"
 
-mainClass in Compile := Some("tech.sourced.berserker.SparkDriver")
+mainClass in Compile := Some("tech.sourced.berserker.ExtractReposLangs")
 
 
 libraryDependencies ++= Seq(

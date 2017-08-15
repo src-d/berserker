@@ -85,33 +85,33 @@ object SparkDriver {
             log.info(s"Processing repository in $sivaUnpackDir")
             JGitFileIterator(sivaUnpackDir, sivaFileName, confBroadcast.value.value)
           }
-          .filter { case (_, treeWalk, _) =>
+          .filter { case (_, treeWalk, _, _) =>
             treeWalk.getFileMode(0) == FileMode.REGULAR_FILE || treeWalk.getFileMode(0) == FileMode.EXECUTABLE_FILE
             //TODO(bzz): skip big well-known binaries .apk and .jar
           }
-          .map { case (initHash, treeWalk, ref) =>
+          .map { case (initHash, tree, ref, config) =>
             val log = Logger.getLogger(s"Stage: detecting a language")
-            val path = treeWalk.getPathString
+            val path = tree.getPathString
 
             var content = Array.emptyByteArray
             var guessed = Enry.getLanguageByFilename(path)
             if (!guessed.safe) {
-              content = RootedRepo.readFile(treeWalk.getObjectId(0), treeWalk.getObjectReader)
+              content = RootedRepo.readFile(tree.getObjectId(0), tree.getObjectReader)
               log.info(s"Detecting lang for: $path using content size:${content.length}")
               guessed = if (content.isEmpty) {
-                new Guess("UNK", false) //Enry.unknownLanguage
+                new Guess("", false) //Enry.unknownLanguage
               } else {
                 Enry.getLanguageByContent(path, content)
               }
             }
-            (initHash, treeWalk, ref, path, content, guessed)
+            (initHash, tree, ref, config, path, content, guessed)
           }
-          .filter { case (_,_,_,_,_, guessed) =>
+          .filter { case (_,_,_,_,_,_, guessed) =>
             guessed != null && (guessed.language.equalsIgnoreCase("python") || guessed.language.equalsIgnoreCase("java"))
           }
-          .flatMap { case (initHash, treeWalk, ref, path, cachedContent, guessed) =>
+          .flatMap { case (initHash, tree, ref, config, path, cachedContent, guessed) =>
             val log = Logger.getLogger(getClass.getName)
-            val content = readIfNotCached(treeWalk, cachedContent)
+            val content = readIfNotCached(tree, cachedContent)
 
             var parsed: ParseResponse = ParseResponse.defaultInstance
             try { // detect language using enry server
@@ -122,9 +122,10 @@ object SparkDriver {
             }
 
             val row = if (parsed.errors.isEmpty) {
+              //TODO(bzz): add repo URL from config
               Seq(Row(initHash,
                 ref.getObjectId.name,           //commit_hash
-                treeWalk.getObjectId(0).name,   //blob_hash
+                tree.getObjectId(0).name,       //blob_hash
                 ref.getName.split('/').last,    //repository_id
                 "",                             //repository_url (?from unpackDir/config)
                 ref.getName.substring(0, ref.getName.lastIndexOf('/')), //reference
