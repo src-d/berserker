@@ -18,7 +18,15 @@ object RootedRepo {
   def readFile(objId: ObjectId, reader: ObjectReader): Array[Byte] = {
     //TODO(bzz): if obj.isLarge() { obj.openStream() and read first N bytes }
     val obj = reader.open(objId)
-    val data = obj.getBytes
+    val data = if (obj.isLarge) {
+      val buf = Array.ofDim[Byte](20*1024*1024)
+      val is = obj.openStream()
+      is.read(buf)
+      is.close()
+      buf
+    } else {
+      obj.getBytes
+    }
     reader.close()
     data
   }
