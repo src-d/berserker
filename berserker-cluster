@@ -41,6 +41,6 @@ sparkSubmit \
   --conf "spark.executor.userClassPathFirst=true" \
   --exclude-packages "org.slf4j:slf4j-api" \
   --repositories "https://jitpack.io" \
-  --packages "com.github.src-d:enry-java:1.0,tech.sourced:siva-java_2.11:0.1.0-SNAPSHOT,org.eclipse.jgit:org.eclipse.jgit:4.8.0.201706111038-r,org.rogach:scallop_2.11:3.0.3,io.grpc:grpc-netty:1.4.0,com.trueaccord.scalapb:scalapb-runtime-grpc_2.11:0.6.0,com.github.bzz:client-scala:390362d7dc" \
+  --packages "tech.sourced:enry-java:1.0,tech.sourced:siva-java_2.11:0.1.0-SNAPSHOT,org.eclipse.jgit:org.eclipse.jgit:4.8.0.201706111038-r,org.rogach:scallop_2.11:3.0.3,io.grpc:grpc-netty:1.4.0,com.trueaccord.scalapb:scalapb-runtime-grpc_2.11:0.6.0,com.github.bzz:client-scala:390362d7dc" \
   "${PWD}/${jar}" \
   "$@"
