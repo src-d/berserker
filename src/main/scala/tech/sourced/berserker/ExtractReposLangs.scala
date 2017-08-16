@@ -79,13 +79,13 @@ object ExtractReposLangs {
         val repoUrls = config.getStringList("remote", repoULID, "url")
         val mainRepoUrl = if (repoUrls.isEmpty) "" else repoUrls.head
 
-        Row(mainRepoUrl, repoIsFork.toBoolean, tree.getPathString, langName, langBytes)
+        Row(mainRepoUrl, repoIsFork.toBoolean, initHash, tree.getPathString, langName, langBytes)
       }
 
     val intermediatePerFileDF = spark.sqlContext.createDataFrame(intermediatePerFile, Schema.filesLang)
     intermediatePerFileDF.write
       .mode("overwrite")
-      .parquet("lang.files")
+      .parquet(outputPath)
 
     val parquetAllDF = spark.read
       .parquet(outputPath)
@@ -100,14 +100,14 @@ object ExtractReposLangs {
     var guessed = Enry.getLanguageByFilename(path)
     if (!guessed.safe) {
       content = RootedRepo.readFile(tree.getObjectId(0), tree.getObjectReader)
-      log.info(s"Detecting lang: $path using content size:${content.length}".getBytes)
+      log.info(s"for $path using content size:${content.length}".getBytes)
       guessed = if (content.isEmpty) {
         Enry.unknownLanguage
       } else {
         new Guess(Enry.getLanguage(path, content), true)
       }
     }
-    log.info(s"Detecting lang: $path is ${guessed.language}")
+    log.info(s"$path is ${guessed.language}")
     (guessed.language, content.length)
   }
 

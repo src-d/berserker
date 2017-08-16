@@ -37,6 +37,7 @@ sparkSubmit \
   --class tech.sourced.berserker.ExtractReposLangs \
   --master "${MASTER:=yarn}" \
   --name "Language extractor" \
+  --conf "spark.executor.memory=4g" \
   --conf "spark.driver.userClassPathFirst=true" \
   --conf "spark.executor.userClassPathFirst=true" \
   --exclude-packages "org.slf4j:slf4j-api" \

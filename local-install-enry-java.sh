@@ -25,5 +25,6 @@ cd -
 
 cd enry/java
 make
+./sbt publish-local
 ./sbt publishM2
 cd -

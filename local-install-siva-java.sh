@@ -19,5 +19,6 @@ fi
 
 cd siva-java
 git checkout feature/siva-unpacker
+./sbt publish-local
 ./sbt publishM2
 cd ..

@@ -47,7 +47,8 @@ object Schema {
 
     val filesLang = StructType(
       StructField("repositoryUrl", StringType, nullable = true) ::
-      StructField("isFork", BooleanType, nullable = false) ::
+      StructField("isFork", BooleanType, nullable = true) ::
+      StructField("initHash", StringType, nullable = false) ::
       StructField("path", StringType, nullable = false) ::
       StructField("langName", StringType, nullable = true) ::
       StructField("langBytes", IntegerType, nullable = true) ::
