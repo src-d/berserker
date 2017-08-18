@@ -70,7 +70,7 @@ object SparkDriver {
         log.info(s"${siva.getAbsolutePath} exists: ${siva.exists} canRead:{${siva.canRead}}")
         new SivaUnpacker(siva.getAbsolutePath).unpack(unpackDir)
         (sivaFile.substring(0, sivaFile.lastIndexOf('.')), unpackDir)
-      } //RDD["sivaFileName sivaUnpackDir"]
+      } //RDD["sivaInitHash sivaUnpackDir"]
 
     // iterate every un-packed .siva
     val intermediatePerFile = unpacked
@@ -80,10 +80,10 @@ object SparkDriver {
         log.info(s"Connecting to Bblfsh server: $bblfshHost:$bblfshPort")
 
         partition
-          .flatMap { case (sivaFileName, sivaUnpackDir) =>
+          .flatMap { case (initHash, sivaUnpackDir) =>
             val log = Logger.getLogger(s"Stage: process single")
             log.info(s"Processing repository in $sivaUnpackDir")
-            JGitFileIterator(sivaUnpackDir, sivaFileName, confBroadcast.value.value)
+            JGitFileIterator(sivaUnpackDir, initHash, confBroadcast.value.value)
           }
           .filter { case (_, treeWalk, _, _) =>
             treeWalk.getFileMode(0) == FileMode.REGULAR_FILE || treeWalk.getFileMode(0) == FileMode.EXECUTABLE_FILE
