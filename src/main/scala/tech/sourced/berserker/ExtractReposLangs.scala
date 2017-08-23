@@ -107,7 +107,7 @@ object ExtractReposLangs {
       content = try {
         RootedRepo.readFile(tree.getObjectId(0), tree.getObjectReader)
       } catch {
-        case e: IOException => Logger
+        case e: Exception => Logger
           .getLogger(s"Failed to detect language: ")
           .error(s"${e.getClass.getSimpleName} skipping file ${tree.getPathString}", e)
         skippedFiles.foreach(_.add(1L))
