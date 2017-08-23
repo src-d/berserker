@@ -73,9 +73,7 @@ object ExtractReposLangs {
         //TODO(bzz): skip big well-known binaries .apk and .jar
       }
       .flatMap { case (initHash, tree, ref, config) =>
-        val log = Logger.getLogger(s"Stage: detecting a language")
-
-        val (langName, langBytes) = guessLang(tree, log, Some(skippedFiles))
+        val (langName, langBytes) = guessLang(tree, Some(skippedFiles))
 
         val repoUUID = ref.getName.split('/').last
         val repoIsFork = config.getString("remote", repoUUID, "isfork")
@@ -100,7 +98,7 @@ object ExtractReposLangs {
 
   }
 
-  def guessLang(tree: TreeWalk, log: Logger, skippedFiles: Option[LongAccumulator] = None): (String, Int) = {
+  def guessLang(tree: TreeWalk, skippedFiles: Option[LongAccumulator] = None): (String, Int) = {
     var content = Array.emptyByteArray
     val path = tree.getPathString
 
@@ -109,12 +107,13 @@ object ExtractReposLangs {
       content = try {
         RootedRepo.readFile(tree.getObjectId(0), tree.getObjectReader)
       } catch {
-        case e: IOException => log.error(s"${e.getClass.getSimpleName}: skipping file ${tree.getPathString}", e)
+        case e: IOException => Logger
+          .getLogger(s"Failed to detect language: ")
+          .error(s"${e.getClass.getSimpleName} skipping file ${tree.getPathString}", e)
         skippedFiles.foreach(_.add(1L))
         Array.emptyByteArray
       }
 
-      log.info(s"for $path using content size:${content.length}".getBytes)
       guessed = if (content.isEmpty) {
         Enry.unknownLanguage
       } else {
