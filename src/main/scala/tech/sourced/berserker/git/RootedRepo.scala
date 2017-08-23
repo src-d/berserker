@@ -34,7 +34,7 @@ object RootedRepo {
 
   val thisStage = "Stage: JGitFileIteration"
 
-  def gitTree(dotGit: String, skippedRepos: Option[LongAccumulator]): (TreeWalk, Ref, Config) = {
+  def gitTree(dotGit: String, skippedRepos: Option[LongAccumulator]): (Option[TreeWalk], Ref, Config) = {
     val log = Logger.getLogger(thisStage)
     log.info(s"Reading bare .git repository from $dotGit")
 
@@ -58,12 +58,12 @@ object RootedRepo {
       treeWalk.addTree(revCommit.getTree)
 
       log.info(s"Walking a tree of $dotGit repository at ${noneForkOrigHeadRef.getName}")
-      (treeWalk, noneForkOrigHeadRef, git.getRepository.getConfig)
+      (Some(treeWalk), noneForkOrigHeadRef, git.getRepository.getConfig)
 
     } catch {
       case e: IOException => log.error(s"${e.getClass.getSimpleName}: skipping repository in $dotGit", e)
       skippedRepos.foreach(_.add(1L))
-      (null, null, null)
+      (None, null, null)
     }
   }
 

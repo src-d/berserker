@@ -2,7 +2,6 @@ package tech.sourced.berserker
 
 import java.io.{File, IOException}
 
-import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
 import org.apache.spark.SparkConf
@@ -78,9 +77,9 @@ object ExtractReposLangs {
 
         val (langName, langBytes) = guessLang(tree, log, Some(skippedFiles))
 
-        val repoULID = ref.getName.split('/').last
-        val repoIsFork = config.getString("remote", repoULID, "isfork")
-        val repoUrls = config.getStringList("remote", repoULID, "url")
+        val repoUUID = ref.getName.split('/').last
+        val repoIsFork = config.getString("remote", repoUUID, "isfork")
+        val repoUrls = config.getStringList("remote", repoUUID, "url")
         val mainRepoUrl = if (repoUrls.isEmpty) "" else repoUrls.head
 
         Seq(Row(mainRepoUrl, repoIsFork.toBoolean, initHash, tree.getPathString, langName, langBytes))

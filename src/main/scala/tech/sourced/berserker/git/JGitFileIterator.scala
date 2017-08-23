@@ -18,35 +18,39 @@ import tech.sourced.berserker.FsUtils
   */
 class JGitFileIterator(sivaUnpackedDir: String, initHash: String, hadoopConf: Configuration, skippedRepos: Option[LongAccumulator])
     extends Iterator[(String, TreeWalk, Ref, Config)] {
-    private val (treeWalk, ref, config) = RootedRepo.gitTree(sivaUnpackedDir, skippedRepos)
+    private val (treeWalkOpt, ref, config) = RootedRepo.gitTree(sivaUnpackedDir, skippedRepos)
     private val log = Logger.getLogger("JGitIterator")
     private var wasAdvanced = false
 
     override def hasNext: Boolean = {
-      if (wasAdvanced == true) {
+      if (!treeWalkOpt.isDefined) {
+        return false
+      }
+
+      if (wasAdvanced) {
         log.debug(s"JGitIterator:hasNext() == true, WITHOUT advancing, for $initHash.siva")
         return true
       }
-      val result = if (treeWalk.next()) {
-        true
-      } else {
-        treeWalk.close()
-        FsUtils.rm(hadoopConf, sivaUnpackedDir)
-        log.info(s"Cleaned up $initHash.siva and unpacked repo from: $sivaUnpackedDir")
-        false
+
+      treeWalkOpt.exists { treeWalk =>
+        val hasNext = treeWalk.next()
+        wasAdvanced = true
+        if (!hasNext) {
+          treeWalk.close()
+          FsUtils.rm(hadoopConf, sivaUnpackedDir)
+          log.info(s"Cleaned up $initHash.siva and unpacked repo from: $sivaUnpackedDir")
+        }
+        hasNext
       }
-      log.debug(s"JGitIterator:hasNext() == $result, advanced:$wasAdvanced for $initHash.siva")
-      wasAdvanced = true
-      result
     }
 
     override def next(): (String, TreeWalk, Ref, Config) = {
       log.debug(s"JGitIterator:next() advanced:$wasAdvanced, for $initHash.siva")
       if (!wasAdvanced) {
-        treeWalk.next()
+        treeWalkOpt.foreach(_.next())
       }
       wasAdvanced = false
-      (initHash, treeWalk, ref, config)
+      (initHash, treeWalkOpt.get, ref, config)
     }
     // can not skip detecting lang for whole `./vendor/*` if `guessed.status == Status.IGNORED`
   }
