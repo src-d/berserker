@@ -1,8 +1,9 @@
 package tech.sourced.berserker.git
 
-import java.io.File
+import java.io.{File, IOException}
 
 import org.apache.log4j.Logger
+import org.apache.spark.util.LongAccumulator
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.{Config, ObjectId, ObjectReader, Ref}
 import org.eclipse.jgit.revwalk.RevWalk
@@ -33,31 +34,37 @@ object RootedRepo {
 
   val thisStage = "Stage: JGitFileIteration"
 
-  def gitTree(dotGit: String): (TreeWalk, Ref, Config) = {
+  def gitTree(dotGit: String, skippedRepos: Option[LongAccumulator]): (TreeWalk, Ref, Config) = {
     val log = Logger.getLogger(thisStage)
     log.info(s"Reading bare .git repository from $dotGit")
 
     val repository = new FileRepositoryBuilder()
-      .readEnvironment()
-      .setGitDir(new File(dotGit))
-      .setMustExist(true)
-      .setBare()
-      .build()
+        .readEnvironment()
+        .setGitDir(new File(dotGit))
+        .setMustExist(true)
+        .setBare()
 
-    val git = new Git(repository)
-    val noneForkOrigHeadRef = getNoneForkOrigRepoHeadRef(git.getRepository.getAllRefs().asScala)
+    try {
+      val git = new Git(repository.build())
+      val noneForkOrigHeadRef = getNoneForkOrigRepoHeadRef(git.getRepository.getAllRefs().asScala)
 
-    val objectId = noneForkOrigHeadRef.getObjectId
-    val revWalk = new RevWalk(git.getRepository)
-    val revCommit = revWalk.parseCommit(objectId)
-    revWalk.close()
+      val objectId = noneForkOrigHeadRef.getObjectId
+      val revWalk = new RevWalk(git.getRepository)
+      val revCommit = revWalk.parseCommit(objectId)
+      revWalk.close()
 
-    val treeWalk = new TreeWalk(git.getRepository)
-    treeWalk.setRecursive(true)
-    treeWalk.addTree(revCommit.getTree)
-    log.info(s"Walking a tree of $dotGit repository at ${noneForkOrigHeadRef.getName}")
+      val treeWalk = new TreeWalk(git.getRepository)
+      treeWalk.setRecursive(true)
+      treeWalk.addTree(revCommit.getTree)
 
-    (treeWalk, noneForkOrigHeadRef, git.getRepository.getConfig)
+      log.info(s"Walking a tree of $dotGit repository at ${noneForkOrigHeadRef.getName}")
+      (treeWalk, noneForkOrigHeadRef, git.getRepository.getConfig)
+
+    } catch {
+      case e: IOException => log.error(s"${e.getClass.getSimpleName}: skipping repository in $dotGit", e)
+      skippedRepos.foreach(_.add(1L))
+      (null, null, null)
+    }
   }
 
 

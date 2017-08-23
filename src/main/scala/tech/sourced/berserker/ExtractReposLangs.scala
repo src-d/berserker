@@ -2,6 +2,7 @@ package tech.sourced.berserker
 
 import java.io.{File, IOException}
 
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
 import org.apache.spark.SparkConf
@@ -37,6 +38,7 @@ object ExtractReposLangs {
       .getOrCreate()
     val sc = spark.sparkContext
     val skippedFiles = sc.longAccumulator("skipped files")
+    val skippedRepos = sc.longAccumulator("skipped repos")
 
     // list .siva files (on Driver)
     val confBroadcast = sc.broadcast(new SerializableConfiguration(sc.hadoopConfiguration))
@@ -65,16 +67,16 @@ object ExtractReposLangs {
       .flatMap { case (sivaFileName, sivaUnpackDir) =>
         val log = Logger.getLogger(s"Stage: process single repo")
         log.info(s"Processing repository in $sivaUnpackDir")
-        JGitFileIterator(sivaUnpackDir, sivaFileName, confBroadcast.value.value)
+        JGitFileIterator(sivaUnpackDir, sivaFileName, confBroadcast.value.value, skippedRepos)
       }
       .filter { case (_, tree, _, _) =>
-        tree.getFileMode(0) == FileMode.REGULAR_FILE || tree.getFileMode(0) == FileMode.EXECUTABLE_FILE
+        tree != null && (tree.getFileMode(0) == FileMode.REGULAR_FILE || tree.getFileMode(0) == FileMode.EXECUTABLE_FILE)
         //TODO(bzz): skip big well-known binaries .apk and .jar
       }
       .flatMap { case (initHash, tree, ref, config) =>
         val log = Logger.getLogger(s"Stage: detecting a language")
 
-        val (langName, langBytes) = guessLang(tree, log, skippedFiles)
+        val (langName, langBytes) = guessLang(tree, log, Some(skippedFiles))
 
         val repoULID = ref.getName.split('/').last
         val repoIsFork = config.getString("remote", repoULID, "isfork")
@@ -89,7 +91,9 @@ object ExtractReposLangs {
       .mode("overwrite")
       .parquet(outputPath)
 
-    log.info(s"Parquet saved. Files skipped: ${skippedFiles.value}")
+    log.info(s"Parquet saved.\n" +
+      s"\tRepos skipped: ${skippedRepos.value}\n" +
+      s"\tFiles skipped: ${skippedFiles.value}\n")
 
     val parquetAllDF = spark.read
       .parquet(outputPath)
@@ -97,7 +101,7 @@ object ExtractReposLangs {
 
   }
 
-  def guessLang(tree: TreeWalk, log: Logger, skippedFiles: LongAccumulator): (String, Int) = {
+  def guessLang(tree: TreeWalk, log: Logger, skippedFiles: Option[LongAccumulator] = None): (String, Int) = {
     var content = Array.emptyByteArray
     val path = tree.getPathString
 
@@ -106,8 +110,8 @@ object ExtractReposLangs {
       content = try {
         RootedRepo.readFile(tree.getObjectId(0), tree.getObjectReader)
       } catch {
-        case e: IOException => log.error(s"${e.getClass.getSimpleName}: skipping ${tree.getPathString}", e)
-        skippedFiles.add(1L)
+        case e: IOException => log.error(s"${e.getClass.getSimpleName}: skipping file ${tree.getPathString}", e)
+        skippedFiles.foreach(_.add(1L))
         Array.emptyByteArray
       }
 
@@ -117,9 +121,6 @@ object ExtractReposLangs {
       } else {
         new Guess(Enry.getLanguage(path, content), true)
       }
-    }
-    if (!guessed.language.isEmpty) {
-      log.debug(s"$path is ${guessed.language}")
     }
     (guessed.language, content.length)
   }
