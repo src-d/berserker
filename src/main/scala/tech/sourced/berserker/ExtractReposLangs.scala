@@ -107,7 +107,9 @@ object ExtractReposLangs {
         new Guess(Enry.getLanguage(path, content), true)
       }
     }
-    log.info(s"$path is ${guessed.language}")
+    if (!guessed.language.isEmpty) {
+      log.debug(s"$path is ${guessed.language}")
+    }
     (guessed.language, content.length)
   }
 
