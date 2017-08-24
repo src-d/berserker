@@ -5,6 +5,7 @@ import java.io.{File, IOException}
 import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
 import org.apache.spark.SparkConf
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.util.LongAccumulator
 import org.eclipse.jgit.lib.FileMode
@@ -52,13 +53,11 @@ object ExtractReposLangs {
 
     // copy from HDFS and un-pack in tmp dir using siva-java (on Workers)
     val unpacked = remoteSivaFiles
-      .map { sivaFile =>
-        FsUtils.copyFromHDFS(confBroadcast.value.value, sivaFile)
+      .flatMap { sivaFile =>
+        copyFromHDFS(sivaFile, confBroadcast, skippedRepos)
       }
-      .map { case (sivaFile, localUnpackDir) =>
-        new SivaUnpacker(new File(s"$localUnpackDir/$sivaFile").getAbsolutePath).unpack(localUnpackDir)
-        val fileNameInitCommit = sivaFile.substring(0, sivaFile.lastIndexOf('.'))
-        (fileNameInitCommit, localUnpackDir)
+      .flatMap { case (sivaFile, localUnpackDir) =>
+        sivaUnpack(sivaFile, localUnpackDir, skippedRepos)
       }
 
     // iterate every un-packed .siva
@@ -95,7 +94,33 @@ object ExtractReposLangs {
     val parquetAllDF = spark.read
       .parquet(outputPath)
       .show(10)
+  }
 
+  def copyFromHDFS(sivaFile: String, confBroadcast: Broadcast[SerializableConfiguration], skippedRepos: LongAccumulator) = {
+    try {
+      val localSivaFile = FsUtils.copyFromHDFS(confBroadcast.value.value, sivaFile)
+      Seq(localSivaFile)
+    } catch {
+      case e: IOException => Logger
+        .getLogger(s"Failed to copy .siva file: ")
+        .error(s"${e.getClass.getSimpleName} skipping repo ${sivaFile}", e)
+      skippedRepos.add(1L)
+      Seq() //TODO(bzz): make sure local fs is cleaned-up
+    }
+  }
+
+  def sivaUnpack(sivaFile: String, localUnpackDir: String, skippedRepos: LongAccumulator) = {
+    try {
+      new SivaUnpacker(new File(s"$localUnpackDir/$sivaFile").getAbsolutePath).unpack(localUnpackDir)
+      val fileNameInitCommit = sivaFile.substring(0, sivaFile.lastIndexOf('.'))
+      Seq((fileNameInitCommit, localUnpackDir))
+    } catch {
+      case e: IOException => Logger
+        .getLogger(s"Failed to unpack .siva file: ")
+        .error(s"${e.getClass.getSimpleName} skipping repo ${sivaFile}", e)
+      skippedRepos.add(1L)
+      Seq() //TODO(bzz): make sure local fs is cleaned-up
+    }
   }
 
   def guessLang(tree: TreeWalk, skippedFiles: Option[LongAccumulator] = None): (String, Int) = {
