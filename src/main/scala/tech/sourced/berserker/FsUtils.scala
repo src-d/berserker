@@ -44,21 +44,13 @@ object FsUtils {
 
   /**
     * Copies given file from remote FS to a temp path in local FS.
-    * Returns string, suitable for using as input for `./siva-unpack`
     *
-    * @param hadoopConf     FS Configuration to use (S3, HDFS, GCS, etc)
-    * @param remoteSivaFile path to single .siva file
-    * @return result, suitable for stdio input as for `./siva-unpack < result`
+    * @param hadoopConf FS Configuration to use (S3, HDFS, GCS, etc)
+    * @param sivaFile src path to a single .siva file
+    * @param toLocalPath dst path in local FS
+    * @return (.siva file name, temp path in local FS)
     */
-  def copyFromHDFS(hadoopConf: Configuration, remoteSivaFile: String): (String, String)= {
-    val localUnpackDir = Utils.createTempDir(namePrefix = FsUtils.sivaFilesNamePrefix).getCanonicalPath
-    val sivaFilename = copyFromHDFS(hadoopConf, remoteSivaFile, localUnpackDir)
-
-    //s"$localUnpackDir/$sivaFilename $localUnpackDir"
-    (sivaFilename, localUnpackDir)
-  }
-
-  def copyFromHDFS(hadoopConf: Configuration, sivaFile: String, toLocalPath: String): String = {
+  def copyFromHDFS(hadoopConf: Configuration, sivaFile: String, toLocalPath: String): (String, String)= {
     val log = Logger.getLogger(FsUtils.thisStage)
     log.info(s"Copying 1 file from: $sivaFile to: $toLocalPath")
 
@@ -69,7 +61,7 @@ object FsUtils {
 
     val sivaFilename = sivaFile.split('/').last
     log.info(s"$sivaFilename copied")
-    sivaFilename
+    (sivaFilename, toLocalPath)
   }
 
   def collectSivaFilePaths(hadoopConfig: Configuration, log: Logger, sivaFilesPath: Path) = {

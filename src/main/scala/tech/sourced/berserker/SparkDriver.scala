@@ -1,11 +1,9 @@
 package tech.sourced.berserker
 
-import java.io.File
-
 import github.com.bblfsh.sdk.protocol.generated.ParseResponse
 import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
-import org.apache.spark.{SparkConf, SparkFiles}
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Row, SparkSession}
 import org.bblfsh.client.BblfshClient
 import org.eclipse.jgit.lib.FileMode
@@ -14,7 +12,6 @@ import tech.sourced.berserker.git.{JGitFileIterator, RootedRepo}
 import tech.sourced.berserker.model.Schema
 import tech.sourced.berserker.spark.SerializableConfiguration
 import tech.sourced.enry.{Enry, Guess}
-import tech.sourced.siva.SivaUnpacker
 
 import scala.util.Properties
 
@@ -61,15 +58,11 @@ object SparkDriver {
 
     // copy from HDFS and un-pack in tmp dir using go-siva (on Workers)
     val unpacked = remoteSivaFiles
-      .map { sivaFile =>
-        FsUtils.copyFromHDFS(confBroadcast.value.value, sivaFile)
+      .flatMap { sivaFile =>
+        ExtractReposLangs.copyFromHDFS(sivaFile, confBroadcast)
       }
-      .map { case (sivaFile, unpackDir) =>
-        val log = Logger.getLogger(s"Stage: unpack siva file")
-        val siva = new File(s"$unpackDir/$sivaFile")
-        log.info(s"${siva.getAbsolutePath} exists: ${siva.exists} canRead:{${siva.canRead}}")
-        new SivaUnpacker(siva.getAbsolutePath).unpack(unpackDir)
-        (sivaFile.substring(0, sivaFile.lastIndexOf('.')), unpackDir)
+      .flatMap { case (sivaFile, localUnpackDir) =>
+        ExtractReposLangs.sivaUnpack(sivaFile, localUnpackDir, confBroadcast)
       } //RDD["sivaInitHash sivaUnpackDir"]
 
     // iterate every un-packed .siva

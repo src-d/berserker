@@ -12,7 +12,7 @@ import org.eclipse.jgit.lib.FileMode
 import org.eclipse.jgit.treewalk.TreeWalk
 import tech.sourced.berserker.git.{JGitFileIterator, RootedRepo}
 import tech.sourced.berserker.model.Schema
-import tech.sourced.berserker.spark.SerializableConfiguration
+import tech.sourced.berserker.spark.{SerializableConfiguration, Utils}
 import tech.sourced.enry.{Enry, Guess}
 import tech.sourced.siva.SivaUnpacker
 
@@ -54,10 +54,10 @@ object ExtractReposLangs {
     // copy from HDFS and un-pack in tmp dir using siva-java (on Workers)
     val unpacked = remoteSivaFiles
       .flatMap { sivaFile =>
-        copyFromHDFS(sivaFile, confBroadcast, skippedRepos)
+        copyFromHDFS(sivaFile, confBroadcast, Some(skippedRepos))
       }
       .flatMap { case (sivaFile, localUnpackDir) =>
-        sivaUnpack(sivaFile, localUnpackDir, skippedRepos)
+        sivaUnpack(sivaFile, localUnpackDir, confBroadcast, Some(skippedRepos))
       }
 
     // iterate every un-packed .siva
@@ -68,7 +68,7 @@ object ExtractReposLangs {
         JGitFileIterator(sivaUnpackDir, sivaFileName, confBroadcast.value.value, skippedRepos)
       }
       .filter { case (_, tree, _, _) =>
-        tree != null && (tree.getFileMode(0) == FileMode.REGULAR_FILE || tree.getFileMode(0) == FileMode.EXECUTABLE_FILE)
+        tree.getFileMode(0) == FileMode.REGULAR_FILE || tree.getFileMode(0) == FileMode.EXECUTABLE_FILE
         //TODO(bzz): skip big well-known binaries .apk and .jar
       }
       .flatMap { case (initHash, tree, ref, config) =>
@@ -96,20 +96,24 @@ object ExtractReposLangs {
       .show(10)
   }
 
-  def copyFromHDFS(sivaFile: String, confBroadcast: Broadcast[SerializableConfiguration], skippedRepos: LongAccumulator) = {
+  def copyFromHDFS(sivaFile: String, conf: Broadcast[SerializableConfiguration], skippedRepos: Option[LongAccumulator] = None) = {
+    val localUnpackDir = Utils.createTempDir(namePrefix = FsUtils.sivaFilesNamePrefix).getCanonicalPath
     try {
-      val localSivaFile = FsUtils.copyFromHDFS(confBroadcast.value.value, sivaFile)
+      val localSivaFile = FsUtils.copyFromHDFS(conf.value.value, sivaFile, localUnpackDir)
       Seq(localSivaFile)
     } catch {
-      case e: IOException => Logger
+      case e: Exception => Logger
         .getLogger(s"Failed to copy .siva file: ")
         .error(s"${e.getClass.getSimpleName} skipping repo ${sivaFile}", e)
-      skippedRepos.add(1L)
-      Seq() //TODO(bzz): make sure local fs is cleaned-up
+
+      //local fs cleaned-up
+      FsUtils.rm(conf.value.value, localUnpackDir)
+      skippedRepos.foreach(_.add(1L))
+      Seq()
     }
   }
 
-  def sivaUnpack(sivaFile: String, localUnpackDir: String, skippedRepos: LongAccumulator) = {
+  def sivaUnpack(sivaFile: String, localUnpackDir: String, conf: Broadcast[SerializableConfiguration], skippedRepos: Option[LongAccumulator] = None) = {
     try {
       new SivaUnpacker(new File(s"$localUnpackDir/$sivaFile").getAbsolutePath).unpack(localUnpackDir)
       val fileNameInitCommit = sivaFile.substring(0, sivaFile.lastIndexOf('.'))
@@ -118,8 +122,11 @@ object ExtractReposLangs {
       case e: IOException => Logger
         .getLogger(s"Failed to unpack .siva file: ")
         .error(s"${e.getClass.getSimpleName} skipping repo ${sivaFile}", e)
-      skippedRepos.add(1L)
-      Seq() //TODO(bzz): make sure local fs is cleaned-up
+
+      //local fs cleaned-up
+      FsUtils.rm(conf.value.value, localUnpackDir)
+      skippedRepos.foreach(_.add(1L))
+      Seq()
     }
   }
 

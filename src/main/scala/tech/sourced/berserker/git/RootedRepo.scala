@@ -15,9 +15,9 @@ import scala.collection.mutable
 
 
 object RootedRepo {
+  val thisStage = "Stage: JGitFileIteration"
 
   def readFile(objId: ObjectId, reader: ObjectReader): Array[Byte] = {
-    //TODO(bzz): if obj.isLarge() { obj.openStream() and read first N bytes }
     val obj = reader.open(objId)
     val data = if (obj.isLarge) {
       val buf = Array.ofDim[Byte](20*1024*1024)
@@ -31,8 +31,6 @@ object RootedRepo {
     reader.close()
     data
   }
-
-  val thisStage = "Stage: JGitFileIteration"
 
   def gitTree(dotGit: String, skippedRepos: Option[LongAccumulator]): (Option[TreeWalk], Ref, Config) = {
     val log = Logger.getLogger(thisStage)
