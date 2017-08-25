@@ -1,11 +1,11 @@
 package tech.sourced.berserker
 
+import java.io.IOException
 import java.net.URI
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.log4j.Logger
-import tech.sourced.berserker.spark.Utils
 
 import scala.collection.mutable
 
@@ -34,8 +34,17 @@ object FsUtils {
     val implSpecificPrefix = s"${FsUtils.sivaFilesNamePrefix}-"
     if (path.contains(jvmTempPath) && dst.getName().contains(implSpecificPrefix)) {
       //path.startsWith(jvmTempPath) can not be used on some OSes
-      fs.delete(dst, true)
-      log.info(s"$dst deleted ")
+      val deleted = try {
+        fs.delete(dst, true)
+      } catch {
+        case e: IOException => log.error(s"Failed to delete $path", e)
+        false
+      }
+      if (deleted) {
+        log.info(s"$dst deleted ")
+      } else {
+        log.info(s"Failed to delete $dst")
+      }
     } else {
       log.info(s"Skip $dst without deleting anything as it looks like it was not created by us. " +
         s"Either not under jvmTempPath:'$jvmTempPath' or name:'${dst.getName()}' doesn't start with '$implSpecificPrefix'")

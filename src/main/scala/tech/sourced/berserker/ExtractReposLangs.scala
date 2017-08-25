@@ -119,7 +119,7 @@ object ExtractReposLangs {
       val fileNameInitCommit = sivaFile.substring(0, sivaFile.lastIndexOf('.'))
       Seq((fileNameInitCommit, localUnpackDir))
     } catch {
-      case e: IOException => Logger
+      case e: Exception => Logger
         .getLogger(s"Failed to unpack .siva file: ")
         .error(s"${e.getClass.getSimpleName} skipping repo ${sivaFile}", e)
 
