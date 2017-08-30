@@ -2,10 +2,10 @@ package tech.sourced.berserker.git
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.log4j.Logger
-import org.apache.spark.util.LongAccumulator
 import org.eclipse.jgit.lib.{Config, Ref}
 import org.eclipse.jgit.treewalk.TreeWalk
 import tech.sourced.berserker.FsUtils
+import tech.sourced.berserker.spark.MapAccumulator
 
 /**
   * Iterates every file in given bare repo (dotGit dir).
@@ -16,9 +16,9 @@ import tech.sourced.berserker.FsUtils
   * @param hadoopConf
   * @param skippedRepos: Accumulator to count number of skipped repositories due to JGit exceptions
   */
-class JGitFileIterator(sivaUnpackedDir: String, initHash: String, hadoopConf: Configuration, skippedRepos: Option[LongAccumulator])
+class JGitFileIterator(sivaUnpackedDir: String, initHash: String, hadoopConf: Configuration, skippedRepos: Option[MapAccumulator])
     extends Iterator[(String, TreeWalk, Ref, Config)] {
-    private val (treeWalkOpt, ref, config) = RootedRepo.gitTree(sivaUnpackedDir, skippedRepos)
+    private val (treeWalkOpt, ref, config) = RootedRepo.gitTree(sivaUnpackedDir, hadoopConf, skippedRepos)
     private val log = Logger.getLogger("JGitIterator")
     private var wasAdvanced = false
 
@@ -56,7 +56,7 @@ class JGitFileIterator(sivaUnpackedDir: String, initHash: String, hadoopConf: Co
   }
 
   object JGitFileIterator {
-    def apply(sivaUnpackedDir: String, sivaFileName: String, hadoopConf: Configuration, skippedRepos: LongAccumulator): JGitFileIterator =
+    def apply(sivaUnpackedDir: String, sivaFileName: String, hadoopConf: Configuration, skippedRepos: MapAccumulator): JGitFileIterator =
       new JGitFileIterator(sivaUnpackedDir, sivaFileName, hadoopConf, Some(skippedRepos))
 
     def apply(sivaUnpackedDir: String, sivaFileName: String, hadoopConf: Configuration): JGitFileIterator =

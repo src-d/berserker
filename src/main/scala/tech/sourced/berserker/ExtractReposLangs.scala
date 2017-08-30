@@ -1,18 +1,17 @@
 package tech.sourced.berserker
 
-import java.io.{File, IOException}
+import java.io.File
 
 import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.{Row, SparkSession}
-import org.apache.spark.util.LongAccumulator
 import org.eclipse.jgit.lib.FileMode
 import org.eclipse.jgit.treewalk.TreeWalk
 import tech.sourced.berserker.git.{JGitFileIterator, RootedRepo}
 import tech.sourced.berserker.model.Schema
-import tech.sourced.berserker.spark.{SerializableConfiguration, Utils}
+import tech.sourced.berserker.spark.{MapAccumulator, SerializableConfiguration, Utils}
 import tech.sourced.enry.{Enry, Guess}
 import tech.sourced.siva.SivaUnpacker
 
@@ -37,8 +36,8 @@ object ExtractReposLangs {
       .master(sparkMaster)
       .getOrCreate()
     val sc = spark.sparkContext
-    val skippedFiles = sc.longAccumulator("skipped files")
-    val skippedRepos = sc.longAccumulator("skipped repos")
+    val skippedFiles = mapAccumulator(sc, "skipped files")
+    val skippedRepos = mapAccumulator(sc, "skipped repos")
 
     // list .siva files (on Driver)
     val confBroadcast = sc.broadcast(new SerializableConfiguration(sc.hadoopConfiguration))
@@ -87,16 +86,19 @@ object ExtractReposLangs {
       .mode("overwrite")
       .parquet(outputPath)
 
-    log.info(s"Parquet saved.\n" +
-      s"\tRepos skipped: ${skippedRepos.value}\n" +
-      s"\tFiles skipped: ${skippedFiles.value}\n")
+    log.info(s"Parquet saved.")
+    log.info(s"\tRepos skipped: ${skippedRepos.value.size}")
+    skippedRepos.value foreach { case (key, value) => log.info(s"\t\t$key --> $value") }
+
+    log.info(s"\tFiles skipped: ${skippedFiles.value.size}")
+    skippedFiles.value foreach { case (key, value) => log.info(s"\t\t$key --> $value") }
 
     val parquetAllDF = spark.read
       .parquet(outputPath)
       .show(10)
   }
 
-  def copyFromHDFS(sivaFile: String, conf: Broadcast[SerializableConfiguration], skippedRepos: Option[LongAccumulator] = None) = {
+  def copyFromHDFS(sivaFile: String, conf: Broadcast[SerializableConfiguration], skippedRepos: Option[MapAccumulator] = None) = {
     val localUnpackDir = Utils.createTempDir(namePrefix = FsUtils.sivaFilesNamePrefix).getCanonicalPath
     try {
       val localSivaFile = FsUtils.copyFromHDFS(conf.value.value, sivaFile, localUnpackDir)
@@ -108,12 +110,12 @@ object ExtractReposLangs {
 
       //local fs cleaned-up
       FsUtils.rm(conf.value.value, localUnpackDir)
-      skippedRepos.foreach(_.add(1L))
+      skippedRepos.foreach(_.add(e.getClass.getSimpleName -> 1))
       Seq()
     }
   }
 
-  def sivaUnpack(sivaFile: String, localUnpackDir: String, conf: Broadcast[SerializableConfiguration], skippedRepos: Option[LongAccumulator] = None) = {
+  def sivaUnpack(sivaFile: String, localUnpackDir: String, conf: Broadcast[SerializableConfiguration], skippedRepos: Option[MapAccumulator] = None) = {
     try {
       new SivaUnpacker(new File(s"$localUnpackDir/$sivaFile").getAbsolutePath).unpack(localUnpackDir)
       val fileNameInitCommit = sivaFile.substring(0, sivaFile.lastIndexOf('.'))
@@ -125,12 +127,12 @@ object ExtractReposLangs {
 
       //local fs cleaned-up
       FsUtils.rm(conf.value.value, localUnpackDir)
-      skippedRepos.foreach(_.add(1L))
+      skippedRepos.foreach(_.add(e.getClass.getSimpleName -> 1))
       Seq()
     }
   }
 
-  def guessLang(tree: TreeWalk, skippedFiles: Option[LongAccumulator] = None): (String, Int) = {
+  def guessLang(tree: TreeWalk, skippedFiles: Option[MapAccumulator] = None): (String, Int) = {
     var content = Array.emptyByteArray
     val path = tree.getPathString
 
@@ -142,7 +144,7 @@ object ExtractReposLangs {
         case e: Exception => Logger
           .getLogger(s"Failed to detect language: ")
           .error(s"${e.getClass.getSimpleName} skipping file ${tree.getPathString}", e)
-        skippedFiles.foreach(_.add(1L))
+        skippedFiles.foreach(_.add(e.getClass.getSimpleName -> 1))
         Array.emptyByteArray
       }
 
@@ -155,5 +157,10 @@ object ExtractReposLangs {
     (guessed.language, content.length)
   }
 
+  def mapAccumulator(sc: SparkContext, name: String): MapAccumulator = {
+    val acc = new MapAccumulator
+    sc.register(acc, name)
+    acc
+  }
 
 }

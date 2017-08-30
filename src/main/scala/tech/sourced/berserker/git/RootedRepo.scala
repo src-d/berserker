@@ -2,13 +2,15 @@ package tech.sourced.berserker.git
 
 import java.io.{File, IOException}
 
+import org.apache.hadoop.conf.Configuration
 import org.apache.log4j.Logger
-import org.apache.spark.util.LongAccumulator
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.{Config, ObjectId, ObjectReader, Ref}
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder
 import org.eclipse.jgit.treewalk.TreeWalk
+import tech.sourced.berserker.FsUtils
+import tech.sourced.berserker.spark.MapAccumulator
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -31,8 +33,7 @@ object RootedRepo {
     reader.close()
     data
   }
-
-  def gitTree(dotGit: String, skippedRepos: Option[LongAccumulator]): (Option[TreeWalk], Ref, Config) = {
+  def gitTree(dotGit: String, hadoopConf: Configuration, skippedRepos: Option[MapAccumulator]): (Option[TreeWalk], Ref, Config) = {
     val log = Logger.getLogger(thisStage)
     log.info(s"Reading bare .git repository from $dotGit")
 
@@ -60,7 +61,9 @@ object RootedRepo {
 
     } catch {
       case e: IOException => log.error(s"${e.getClass.getSimpleName}: skipping repository in $dotGit", e)
-      skippedRepos.foreach(_.add(1L))
+
+      FsUtils.rm(hadoopConf, dotGit)
+      skippedRepos.foreach(_.add(e.getClass.getSimpleName -> 1))
       (None, null, null)
     }
   }
