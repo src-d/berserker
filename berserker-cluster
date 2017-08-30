@@ -41,6 +41,8 @@ sparkSubmit \
   --conf "spark.driver.userClassPathFirst=true" \
   --conf "spark.executor.userClassPathFirst=true" \
   --conf "spark.eventLog.enabled=true" \
+  --conf "spark.local.dir=/spark-temp-data" \
+  --conf "spark.executor.extraJavaOptions=-Djava.io.tmpdir=/spark-temp-data" \
   --exclude-packages "org.slf4j:slf4j-api" \
   --repositories "https://jitpack.io" \
   --packages "tech.sourced:enry-java:1.0,tech.sourced:siva-java_2.11:0.1.0-SNAPSHOT,org.eclipse.jgit:org.eclipse.jgit:4.8.0.201706111038-r,org.rogach:scallop_2.11:3.0.3,com.github.bzz:client-scala:390362d7dc" \
