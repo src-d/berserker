@@ -33,7 +33,14 @@ class JGitFileIterator(sivaUnpackedDir: String, initHash: String, hadoopConf: Co
       }
 
       treeWalkOpt.exists { treeWalk =>
-        val hasNext = treeWalk.next()
+        val hasNext = try {
+          treeWalk.next()
+        } catch {
+          case e: Exception => log.error(s"Failed to iterate $ref - " +
+            s" due to ${e.getClass.getSimpleName}, skipping repo $initHash.siva", e)
+          skippedRepos.foreach(_.add(e.getClass.getSimpleName -> 1))
+          false
+        }
         wasAdvanced = true
         if (!hasNext) {
           treeWalk.close()
