@@ -13,18 +13,13 @@ cache:
     - $HOME/.sbt
     - $HOME/.ivy2
 
-install:
- - go get -v github.com/Masterminds/glide
- - cd $GOPATH/src/github.com/Masterminds/glide && git checkout tags/0.10.2 && go install && cd -
- - mkdir -p $GOPATH/src/github.com/src-d && ln -s $PWD $GOPATH/src/github.com/src-d/berserker
-
 before_script:
  - docker run -d -p 9432:9432 --name bblfsh bblfsh/server
  - ./local-install-bblfsh-client-scala.sh
+ - ./local-install-enry-java.sh
+ - ./local-install-siva-java.sh
+
 
 script:
- - cd $GOPATH/src/github.com/src-d/berserker/enrysrv && ./build && cd - || travis_terminate 1
- - enrysrv/bin/enrysrv server&
- - echo $TRAVIS_SCALA_VERSION
- - ./sbt ++$TRAVIS_SCALA_VERSION test || travis_terminate 1
+ - ./sbt ++$TRAVIS_SCALA_VERSION test
  - ./test

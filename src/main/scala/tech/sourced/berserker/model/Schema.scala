@@ -32,7 +32,7 @@ object Schema {
   )
 
   val all = StructType(
-    StructField("initHash", StringType, nullable = false) ::
+      StructField("initHash", StringType, nullable = false) ::
       StructField("commitHash", StringType, nullable = false) ::
       StructField("blobHash", StringType, nullable = false) ::
       StructField("repositoryId", StringType, nullable = false) ::
@@ -44,5 +44,16 @@ object Schema {
       StructField("uast", BinaryType, nullable = true) ::
       Nil
   )
+
+    val filesLang = StructType(
+      StructField("repositoryUrl", StringType, nullable = true) ::
+      StructField("isFork", BooleanType, nullable = true) ::
+      StructField("initHash", StringType, nullable = false) ::
+      StructField("path", StringType, nullable = false) ::
+      StructField("langName", StringType, nullable = true) ::
+      StructField("langBytes", IntegerType, nullable = true) ::
+      Nil
+  )
+
 
 }
